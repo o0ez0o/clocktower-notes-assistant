@@ -1,0 +1,13 @@
+node_modules/
+dist/
+test-results/
+playwright-report/
+.openai/
+AGENTS.md
+design-qa.md
+browser-*.png
+implementation-*.png
+design-comparison*.png
+reference-option-1.png
+source-normalized.png
+outputs/
