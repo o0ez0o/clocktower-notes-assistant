@@ -12,6 +12,7 @@ import {
   CheckIcon,
   CopyIcon,
   Cross2Icon,
+  EyeOpenIcon,
   FileTextIcon,
   GearIcon,
   MagnifyingGlassIcon,
@@ -21,7 +22,25 @@ import {
   TrashIcon,
 } from "@radix-ui/react-icons";
 import "./prototype.css";
+import "./responsive.css";
+import "./design-system.css";
 import { translate, teamText, type Language } from "./i18n";
+
+function LightbulbIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M9 18h6M10 21h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M8.2 15.1C6.8 14 6 12.3 6 10.5a6 6 0 1 1 12 0c0 1.8-.8 3.5-2.2 4.6-.6.5-.8 1.1-.8 1.9H9c0-.8-.2-1.4-.8-1.9Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function MenuIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
 type Mark =
   | "demon"
   | "minion"
@@ -38,8 +57,11 @@ type Role = {
   zh: string;
   en: string;
   team: Team;
-  edition: "tb" | "bmr" | "snv";
+  edition: "tb" | "bmr" | "snv" | "carousel" | "sy";
   image: string;
+  abilityZh?: string;
+  firstNightReminderZh?: string;
+  otherNightReminderZh?: string;
 };
 type Player = {
   id: number;
@@ -68,11 +90,15 @@ type ScriptBoard = {
   name: string;
   roleIds: string[];
   official?: boolean;
+  author?: string;
+  sourceLabel?: string;
+  specialRule?: string;
 };
 type Composition = { 镇民: number; 外来者: number; 爪牙: number; 恶魔: number };
 type DisplaySettings = {
   showRoleNames: boolean;
   showPlayerNames: boolean;
+  alwaysShowDailyRoles: boolean;
   markSize: "small" | "medium" | "large";
 };
 const assetUrl = (path: string) => `${import.meta.env.BASE_URL}assets/${path}`;
@@ -174,6 +200,41 @@ const roles: Role[] = [
   ...makeRoles([...tb, ...tbExtra], "tb"),
   ...makeRoles(bmr, "bmr"),
   ...makeRoles(snv, "snv"),
+  {
+    id: "noble", zh: "贵族", en: "Noble", team: "镇民", edition: "carousel",
+    image: "https://release.botc.app/resources/characters/carousel/noble_g.webp",
+  },
+  {
+    id: "zhifu", zh: "知府", en: "Zhifu", team: "镇民", edition: "sy",
+    image: "https://oss.gstonegames.com/data_file/clocktower/upload/202404/c_2565080943171_2bd68241.jpg",
+    abilityZh: "每个夜晚*，你会得知今天是否有非镇民且非旅行者玩家死亡。",
+    otherNightReminderZh: "告通知府今天是否有非镇民且非旅行者玩家死亡。",
+  },
+  {
+    id: "shutong", zh: "书童", en: "Shutong", team: "外来者", edition: "sy",
+    image: "https://oss.gstonegames.com/data_file/clocktower/upload/202404/c_2027903943171_36d374a5.jpg",
+    abilityZh: "在你的首个夜晚，你要选择除你以外的一名玩家：除首个夜晚以外，当他被邪恶玩家的能力选择或影响时，你会在当晚死亡。",
+    firstNightReminderZh: "书童选择除自己以外的一名玩家。",
+    otherNightReminderZh: "如果书童选择的玩家今晚被邪恶玩家的能力选择或影响，书童死亡。",
+  },
+  {
+    id: "niangjiushi", zh: "酿酒师", en: "Brewer", team: "爪牙", edition: "sy",
+    image: "https://oss.gstonegames.com/data_file/clocktower/upload/202301/c_3356597694761_0a4b67e6.jpg",
+    abilityZh: "每个夜晚，你要选择一个镇民角色：当他下一次通过自身能力获取信息时，改为得知你给出的信息。",
+    firstNightReminderZh: "酿酒师选择一个镇民角色，并为其下一次获取信息准备错误信息。",
+    otherNightReminderZh: "酿酒师选择一个镇民角色，并为其下一次获取信息准备错误信息。",
+  },
+  {
+    id: "marionette", zh: "提线木偶", en: "Marionette", team: "爪牙", edition: "carousel",
+    image: "https://release.botc.app/resources/characters/carousel/marionette_e.webp",
+  },
+];
+const quasiAccurateRoleIds = [
+  "noble", "chef", "clockmaker", "empath", "gambler", "fortuneteller",
+  "chambermaid", "snakecharmer", "zhifu", "towncrier", "monk", "seamstress", "artist",
+  "drunk", "shutong", "moonchild", "recluse",
+  "niangjiushi", "assassin", "godfather", "scarletwoman", "marionette",
+  "nodashii", "vortox",
 ];
 const defaultBoards: ScriptBoard[] = [
   {
@@ -194,6 +255,60 @@ const defaultBoards: ScriptBoard[] = [
     roleIds: makeRoles(snv, "snv").map((r) => r.id),
     official: true,
   },
+  {
+    id: "quasi-accurate",
+    name: "似准非准",
+    roleIds: quasiAccurateRoleIds,
+    official: true,
+    author: "魏准",
+    sourceLabel: "玩家自制板子",
+  },
+  {
+    id: "all-amnesiac",
+    name: "全员失忆（官三板角色池）",
+    roleIds: [...new Set([
+      ...makeRoles([...tb, ...tbExtra], "tb").map((r) => r.id),
+      ...makeRoles(bmr, "bmr").map((r) => r.id),
+      ...makeRoles(snv, "snv").map((r) => r.id),
+    ])],
+    official: true,
+    author: "",
+    sourceLabel: "社区特殊规则板子",
+    specialRule: "每个白天限一次，所有玩家都能向说书人询问一个有关自己能力的问题，并得知“完美／接近／有关／无关”。黄昏时说书人公布完美数量；第四个白天时所有玩家的猜测视为完美。",
+  },
+];
+const firstNightOrder = [
+  "philosopher", "minioninfo", "demoninfo", "sailor", "marionette", "niangjiushi",
+  "poisoner", "courtier", "snakecharmer", "godfather", "devilsadvocate", "eviltwin",
+  "witch", "cerenovus", "pukka", "shutong", "amnesiac", "washerwoman", "librarian",
+  "investigator", "chef", "empath", "fortuneteller", "butler", "grandmother", "clockmaker",
+  "dreamer", "seamstress", "noble", "spy", "chambermaid", "mathematician",
+];
+const firstNightInformationRoleIds = new Set([
+  "washerwoman",
+  "librarian",
+  "investigator",
+  "chef",
+  "empath",
+  "fortuneteller",
+  "grandmother",
+  "clockmaker",
+  "dreamer",
+  "seamstress",
+  "noble",
+  "chambermaid",
+  "mathematician",
+  "amnesiac",
+]);
+const otherNightOrder = [
+  "philosopher", "sailor", "niangjiushi", "poisoner", "courtier", "innkeeper", "gambler",
+  "snakecharmer", "monk", "devilsadvocate", "witch", "cerenovus", "pithag", "scarletwoman",
+  "lunatic", "exorcist", "imp", "zombuul", "pukka", "shabaloth", "po", "fanggu",
+  "nodashii", "vortox", "vigormortis", "assassin", "godfather", "gossip", "barber",
+  "sweetheart", "sage", "professor", "shutong", "tinker", "moonchild", "grandmother",
+  "ravenkeeper", "empath", "fortuneteller", "undertaker", "dreamer", "flowergirl",
+  "towncrier", "zhifu", "oracle", "seamstress", "juggler", "amnesiac", "butler", "spy",
+  "chambermaid", "mathematician",
 ];
 const marks: { key: Mark; label: string; short: string; icon: string }[] = [
   {
@@ -266,10 +381,19 @@ export default function Prototype() {
   const [started, setStarted] = useState(false),
     [boards, setBoards] = useState<ScriptBoard[]>(() => {
       try {
-        return (
-          JSON.parse(localStorage.getItem("clocktower-boards") || "") ||
-          defaultBoards
-        );
+        const saved = JSON.parse(
+          localStorage.getItem("clocktower-boards") || "null",
+        ) as ScriptBoard[] | null;
+        if (!saved) return defaultBoards;
+        const defaultsById = new Map(defaultBoards.map((board) => [board.id, board]));
+        return [
+          ...defaultBoards.map((board) =>
+            saved.some((item) => item.id === board.id)
+              ? { ...saved.find((item) => item.id === board.id), ...board }
+              : board,
+          ),
+          ...saved.filter((board) => !defaultsById.has(board.id)),
+        ];
       } catch {
         return defaultBoards;
       }
@@ -297,7 +421,7 @@ export default function Prototype() {
     [maxDay, setMaxDay] = useState(1),
     [quick, setQuick] = useState<number | null>(null),
     [rolePlayer, setRolePlayer] = useState<number | null>(null),
-    [roleTab, setRoleTab] = useState<Role["team"]>("镇民"),
+    [roleStatusOpen, setRoleStatusOpen] = useState(false),
     [board, setBoard] = useState(false),
     [notes, setNotes] = useState(false),
     [notePlayer, setNotePlayer] = useState<number | null>(null),
@@ -318,32 +442,33 @@ export default function Prototype() {
     [peacefulDays, setPeacefulDays] = useState<number[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false),
     [manualOpen, setManualOpen] = useState(false),
+    [mobileMenuOpen, setMobileMenuOpen] = useState(false),
     [display, setDisplay] = useState<DisplaySettings>(() => {
       try {
-        return (
-          JSON.parse(localStorage.getItem("clocktower-display") || "") || {
+        const saved = JSON.parse(localStorage.getItem("clocktower-display") || "");
+        return saved ? {
+            showRoleNames: saved.showRoleNames ?? true,
+            showPlayerNames: saved.showPlayerNames ?? true,
+            alwaysShowDailyRoles: saved.alwaysShowDailyRoles ?? false,
+            markSize: saved.markSize ?? "medium",
+          } : {
             showRoleNames: true,
             showPlayerNames: true,
+            alwaysShowDailyRoles: false,
             markSize: "medium",
-          }
-        );
+          };
       } catch {
         return {
           showRoleNames: true,
           showPlayerNames: true,
+          alwaysShowDailyRoles: false,
           markSize: "medium",
         };
       }
-    }),
-    [officialAbilities, setOfficialAbilities] = useState<
-      Record<string, string>
-    >({});
+    });
   const [language, setLanguage] = useState<Language>(
       () => (localStorage.getItem("clocktower-language") as Language) || "zh",
-    ),
-    [officialAbilitiesZh, setOfficialAbilitiesZh] = useState<
-      Record<string, string>
-    >({});
+    );
   const t = (text: string) => translate(language, text),
     team = (text: string) => teamText(language, text);
   const [relations, setRelations] = useState<Relation[]>([
@@ -401,31 +526,6 @@ export default function Prototype() {
     };
   }, [board, settingsOpen, manualOpen, rolePlayer, notePlayer, relationDraft, deathDecisionPlayer, notes]);
   useEffect(() => {
-    fetch(assetUrl("clocktower/official-roles.json"))
-      .then((r) => r.json())
-      .then((data: { id: string; ability: string }[]) =>
-        setOfficialAbilities(
-          Object.fromEntries(data.map((r) => [r.id, r.ability])),
-        ),
-      )
-      .catch(() => setToast("官方角色描述载入失败"));
-  }, []);
-  useEffect(() => {
-    fetch(assetUrl("clocktower/official-roles-zh.json"))
-      .then((r) => r.json())
-      .then((data: { roles: Record<string, { ability?: string }> }) =>
-        setOfficialAbilitiesZh(
-          Object.fromEntries(
-            Object.entries(data.roles || {}).map(([id, r]) => [
-              id,
-              r.ability || "",
-            ]),
-          ),
-        ),
-      )
-      .catch(() => setToast("官方角色描述载入失败"));
-  }, []);
-  useEffect(() => {
     const reset = () => {
       (document.activeElement as HTMLElement | null)?.blur();
       const scroll = document.querySelector<HTMLElement>(".mobile-scroll");
@@ -441,7 +541,9 @@ export default function Prototype() {
     x: number;
     y: number;
     dragging: boolean;
-  }>({ x: 0, y: 0, dragging: false });
+    held?: boolean;
+  }>({ x: 0, y: 0, dragging: false, held: false });
+  const voteClickGuardUntil = useRef(0);
   const relationHold = useRef<{
     timer?: number;
     id?: number;
@@ -568,11 +670,13 @@ export default function Prototype() {
     if (drag) return;
     e.preventDefault();
     e.currentTarget.setPointerCapture?.(e.pointerId);
-    hold.current = { id, x: e.clientX, y: e.clientY, dragging: false };
+    hold.current = { id, x: e.clientX, y: e.clientY, dragging: false, held: false };
     hold.current.timer = window.setTimeout(() => {
       if (!hold.current.dragging) {
-        setRolePlayer(id);
+        hold.current.held = true;
+        setNotePlayer(id);
         setQuick(null);
+        setRolePlayer(null);
       }
     }, 650);
   };
@@ -603,18 +707,22 @@ export default function Prototype() {
       target = moved ? pointerTarget(e.clientX, e.clientY) ?? hold.current.target : undefined;
     e.currentTarget.releasePointerCapture?.(e.pointerId);
     if (target !== undefined) {
+      voteClickGuardUntil.current = Date.now() + 320;
       setDrag({ from: source, to: target });
       setVotes([]);
       setToast(`玩家 ${source} → 玩家 ${target} · 点击头像投票`);
-    } else if (!moved && rolePlayer === null)
-      setQuick((q) => (q === id ? null : id));
+    } else if (!moved && !hold.current.held) {
+      setRolePlayer(id);
+      setRoleStatusOpen(false);
+      setQuick(null);
+    }
     setDragPreview(null);
-    hold.current = { x: 0, y: 0, dragging: false };
+    hold.current = { x: 0, y: 0, dragging: false, held: false };
   };
   const cancelPointer = () => {
     if (hold.current.timer) clearTimeout(hold.current.timer);
     setDragPreview(null);
-    hold.current = { x: 0, y: 0, dragging: false };
+    hold.current = { x: 0, y: 0, dragging: false, held: false };
   };
   const livingCount = players.filter(
     (p) => !p.marks.includes("deadVote") && !p.marks.includes("deadSpent"),
@@ -893,6 +1001,20 @@ export default function Prototype() {
               </div>
               <div className="utility-actions">
                 <button
+                  aria-label={t("板子信息")}
+                  className="board-utility-button ui-button ui-button--secondary ui-button--icon"
+                  onClick={() => setBoard(true)}
+                >
+                  <FileTextIcon />
+                </button>
+                <button
+                  aria-label={t("使用手册")}
+                  className="manual-utility-button"
+                  onClick={() => setManualOpen(true)}
+                >
+                  <LightbulbIcon />
+                </button>
+                <button
                   aria-label={t("设置")}
                   className="settings-button"
                   onClick={() => setSettingsOpen(true)}
@@ -941,6 +1063,7 @@ export default function Prototype() {
                   )
                 }
                 day={day}
+                alwaysShowDailyRoles={display.alwaysShowDailyRoles}
                 edit={editPlayerDay}
                 clear={clearPlayerDay}
               />
@@ -959,6 +1082,7 @@ export default function Prototype() {
                   )
                 }
                 day={day}
+                alwaysShowDailyRoles={display.alwaysShowDailyRoles}
                 edit={editPlayerDay}
                 clear={clearPlayerDay}
               />
@@ -975,6 +1099,7 @@ export default function Prototype() {
                   )
                 }
                 day={day}
+                alwaysShowDailyRoles={display.alwaysShowDailyRoles}
                 edit={editPlayerDay}
                 clear={clearPlayerDay}
               />
@@ -1127,19 +1252,60 @@ export default function Prototype() {
                 className={`dial-prompt ${drag ? "vote" : dragPreview ? "drag" : quick ? "mark" : "idle"}`}
               >
                 {drag ? (
-                  t("请选择投票处决的玩家")
+                  <>
+                    <strong>
+                      {language === "zh" ? "玩家" : "Player"} {drag.from} →{" "}
+                      {language === "zh" ? "玩家" : "Player"} {drag.to}
+                    </strong>
+                    <span>{t("请选择投票处决的玩家")}</span>
+                    <span>{votes.length}{t("票")}</span>
+                  </>
                 ) : dragPreview ? (
-                  t("拖向一名可提名的玩家")
+                  dragPreview.target !== undefined
+                    ? t("松开即可进入投票状态")
+                    : t("拖向一名可提名的玩家")
                 ) : quick ? (
                   t("选择玩家状态标记")
                 ) : (
                   <>
-                    <span>{t("轻点标记")}</span>
-                    <span>{t("长按选角色")}</span>
+                    <span>{t("轻点选角色")}</span>
+                    <span>{t("长按添加笔记")}</span>
                     <span>{t("拖拽提名")}</span>
                   </>
                 )}
               </div>
+              {drag && (
+                <div className="vote-dial-actions">
+                  <button
+                    className="vote-exit-button"
+                    aria-label={t("关闭")}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      setDrag(null);
+                      setVotes([]);
+                    }}
+                  >
+                    <Cross2Icon />
+                  </button>
+                  <button
+                    className={`vote-dial-confirm ${votes.length > livingCount / 2 ? "execution" : ""}`}
+                    disabled={
+                      nominationSources.has(drag.from) ||
+                      nominationTargets.has(drag.to)
+                    }
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      finish("nominate");
+                    }}
+                  >
+                    {t(votes.length > livingCount / 2 ? "标记处决" : "确认")} · {votes.length}{t("票")}
+                  </button>
+                </div>
+              )}
               {players.map((p) => {
                 const q = point(p.id),
                   active = quick === p.id,
@@ -1171,6 +1337,7 @@ export default function Prototype() {
                       if (drag) {
                         e.preventDefault();
                         e.stopPropagation();
+                        if (Date.now() < voteClickGuardUntil.current) return;
                         if (canVote)
                           setVotes((v) =>
                             v.includes(p.id)
@@ -1206,6 +1373,32 @@ export default function Prototype() {
                       <span className="vote-check">
                         {voted ? <CheckIcon /> : ""}
                       </span>
+                    )}
+                    {drag && drag.to === p.id && (
+                      <div className="target-relation-actions">
+                        <button
+                          className="good"
+                          onPointerDown={(event) => event.stopPropagation()}
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            finish("good");
+                          }}
+                        >
+                          {t("保")}
+                        </button>
+                        <button
+                          className="bad"
+                          onPointerDown={(event) => event.stopPropagation()}
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            finish("bad");
+                          }}
+                        >
+                          {t("踩")}
+                        </button>
+                      </div>
                     )}
                     {display.showRoleNames && p.role && (
                       <b className="role-name">
@@ -1318,7 +1511,9 @@ export default function Prototype() {
               ))}
               <button
                 className="add-possibility"
+                disabled={poss.length >= 4}
                 onClick={() => {
+                  if (poss.length >= 4) return;
                   const n = poss.length + 1;
                   setPoss([...poss, n]);
                   setPossibility(n);
@@ -1331,52 +1526,37 @@ export default function Prototype() {
             </Carousel>
           </section>
           <div className="bottom-tools">
-            <button className="script-info-icon" aria-label={t("板子信息")} onClick={() => setBoard(true)}>
+            <div className="compact-tools-menu">
+              <button
+                className="compact-menu-trigger ui-button ui-button--secondary ui-button--icon"
+                aria-label={t("板子信息")}
+                aria-expanded={mobileMenuOpen}
+                onClick={() => setMobileMenuOpen((open) => !open)}
+              >
+                <MenuIcon />
+              </button>
+              {mobileMenuOpen && (
+                <div className="compact-menu-popover">
+                  <button onClick={() => { setBoard(true); setMobileMenuOpen(false); }}><FileTextIcon /><span>{t("板子信息")}</span></button>
+                  <button onClick={() => { setManualOpen(true); setMobileMenuOpen(false); }}><LightbulbIcon /><span>{t("使用手册")}</span></button>
+                  <button onClick={() => { setSettingsOpen(true); setMobileMenuOpen(false); }}><GearIcon /><span>{t("设置")}</span></button>
+                </div>
+              )}
+            </div>
+            <button className="script-info-icon bottom-utility ui-button ui-button--secondary ui-button--icon" aria-label={t("板子信息")} onClick={() => setBoard(true)}>
               <FileTextIcon />
             </button>
-            <button className="open-notes" onClick={() => setNotes(true)}>{t("打开笔记")}</button>
+            <button className="manual-bottom-button bottom-utility ui-button ui-button--secondary ui-button--icon" aria-label={t("使用手册")} onClick={() => setManualOpen(true)}>
+              <LightbulbIcon />
+            </button>
+            <button className="settings-bottom-button bottom-utility ui-button ui-button--secondary ui-button--icon" aria-label={t("设置")} onClick={() => setSettingsOpen(true)}>
+              <GearIcon />
+            </button>
+            <button className="open-notes ui-button ui-button--primary" onClick={() => setNotes(true)}>{t("打开笔记")}</button>
           </div>
           <div className="toast">{localizedToast(language, toast)}</div>
         </main>
       </MobileScroll>
-      {drag && (
-        <div className="relation-toolbar">
-          <button
-            className="cancel-relation"
-            onClick={() => {
-              setDrag(null);
-              setVotes([]);
-            }}
-          >
-            <Cross2Icon />
-          </button>
-          <span>
-            {language === "zh" ? "玩家" : "Player"} {drag.from} →{" "}
-            {language === "zh" ? "玩家" : "Player"} {drag.to} ·{" "}
-            {t("直接点圆盘头像投票")}
-          </span>
-          <div className="relation-actions">
-            <button className="good" onClick={() => finish("good")}>
-              {t("保")}
-            </button>
-            <button className="bad" onClick={() => finish("bad")}>
-              {t("踩")}
-            </button>
-            <button
-              className={`confirm ${votes.length > livingCount / 2 ? "execution" : ""}`}
-              disabled={
-                nominationSources.has(drag.from) ||
-                nominationTargets.has(drag.to)
-              }
-              onClick={() => finish("nominate")}
-            >
-              {t(votes.length > livingCount / 2 ? "标记处决" : "确认本轮")} ·{" "}
-              {votes.length}
-              {t("票")}
-            </button>
-          </div>
-        </div>
-      )}
       <BottomSheet
         open={deathDecisionPlayer !== null}
         onOpenChange={(open) => !open && setDeathDecisionPlayer(null)}
@@ -1572,7 +1752,7 @@ export default function Prototype() {
             <h3>{t("玩家与标记")}</h3>
             <p>
               {t(
-                "轻点玩家打开快捷标记；点击空白处关闭。长按玩家可从本局板子选择角色。",
+                "轻点玩家可从本局板子选择角色；长按玩家打开快捷标记，点击空白处关闭。",
               )}
             </p>
           </section>
@@ -1643,28 +1823,8 @@ export default function Prototype() {
         >
           <Cross2Icon />
         </button>
-        <Tabs
-          language={language}
-          tab={roleTab}
-          setTab={setRoleTab}
-          groups={groups}
-        />
-        <div className="board-list">
-          {groups[roleTab].map((r) => (
-            <div className="board-role" key={r.id}>
-              <img src={r.image} />
-              <div>
-                <b>
-                  {r.zh}（{r.en}）
-                </b>
-                <p className="role-ability">
-                  {(language === "zh"
-                    ? officialAbilitiesZh[r.id]
-                    : officialAbilities[r.id]) || t("正在载入官方能力描述…")}
-                </p>
-              </div>
-            </div>
-          ))}
+        <div className="in-game-board-preview" data-scroll-drag="ignore">
+          <ScriptPreviewContent board={currentBoard} language={language} />
         </div>
         <button className="end-game" onClick={endGame}>
           {t("结束本局并返回主页")}
@@ -1717,6 +1877,19 @@ export default function Prototype() {
           </label>
           <label>
             <span>
+              <b>{t("每日记录显示首夜信息角色")}</b>
+              <small>{t("第一天以灰色显示首夜获取信息的角色")}</small>
+            </span>
+            <input
+              type="checkbox"
+              checked={display.alwaysShowDailyRoles}
+              onChange={(e) =>
+                setDisplay({ ...display, alwaysShowDailyRoles: e.target.checked })
+              }
+            />
+          </label>
+          <label>
+            <span>
               <b>{t("显示玩家名字")}</b>
               <small>{t("有填写名字时显示")}</small>
             </span>
@@ -1750,60 +1923,147 @@ export default function Prototype() {
       </BottomSheet>
       <BottomSheet
         open={rolePlayer !== null}
-        onOpenChange={(o) => !o && setRolePlayer(null)}
+        onOpenChange={(o) => {
+          if (!o) {
+            setRolePlayer(null);
+            setRoleStatusOpen(false);
+          }
+        }}
         title={`${language === "zh" ? "为玩家" : "Player"} ${rolePlayer || ""} · ${t("选择角色")}`}
-        description={t("长按头像可随时修改")}
+        description={t("轻点头像可随时修改")}
         snap={0.88}
       >
         <button
           aria-label={t("关闭")}
           className="desktop-modal-close"
-          onClick={() => setRolePlayer(null)}
+          onClick={() => {
+            setRolePlayer(null);
+            setRoleStatusOpen(false);
+          }}
         >
           <Cross2Icon />
         </button>
-        <Tabs
-          language={language}
-          tab={roleTab}
-          setTab={setRoleTab}
-          groups={groups}
-        />
-        <button
-          className="no-role"
-          onClick={() => {
-            setPlayers((ps) =>
-              ps.map((p) =>
-                p.id === rolePlayer ? { ...p, role: undefined } : p,
-              ),
-            );
-            setRolePlayer(null);
-          }}
-        >
-          {t("无角色 · 恢复默认头像")}
-        </button>
-        <div className="role-grid">
-          {groups[roleTab].map((r) => {
-            const assigned = players.some((p) => p.role?.id === r.id);
-            const current = players.find((p) => p.id === rolePlayer)?.role?.id === r.id;
-            return (
-            <button
-              key={r.id}
-              className={`${assigned ? "assigned" : ""} ${current ? "current" : ""}`}
-              onClick={() => {
-                setPlayers((ps) =>
-                  ps.map((p) => (p.id === rolePlayer ? { ...p, role: r } : p)),
+        <div className="role-picker-content" data-scroll-drag="ignore">
+          <section className="role-picker-group clear-role-group">
+            <div className="role-avatar-grid">
+              <button
+                className="role-avatar-option clear-role-option"
+                aria-label={t("取消标记")}
+                onClick={() => {
+                  setPlayers((ps) =>
+                    ps.map((p) =>
+                      p.id === rolePlayer ? { ...p, role: undefined } : p,
+                    ),
+                  );
+                }}
+              >
+                <span>{t("取消标记")}</span>
+              </button>
+              <button
+                className={`role-avatar-option role-drunk-option ${
+                  players.find((player) => player.id === rolePlayer)?.marks.includes("drunk")
+                    ? "selected"
+                    : ""
+                }`}
+                aria-label={t("酒鬼")}
+                aria-pressed={Boolean(
+                  players.find((player) => player.id === rolePlayer)?.marks.includes("drunk"),
+                )}
+                title={t("酒鬼")}
+                onClick={() => rolePlayer !== null && updateMark(rolePlayer, "drunk")}
+              >
+                <img src={marks.find((status) => status.key === "drunk")?.icon} alt="" />
+              </button>
+            </div>
+          </section>
+          {(["镇民", "外来者", "爪牙", "恶魔"] as Team[]).map((teamName) => (
+            <section className={`role-picker-group team-${teamName}`} key={teamName}>
+              <h3>{teamText(language, teamName)}</h3>
+              <div className="role-avatar-grid">
+                {groups[teamName].map((r) => {
+                  const assigned = players.some((p) => p.role?.id === r.id);
+                  const current = players.find((p) => p.id === rolePlayer)?.role?.id === r.id;
+                  return (
+                    <div className="role-avatar-item" key={r.id}>
+                      <button
+                        aria-label={language === "zh" ? r.zh : `${r.zh} (${r.en})`}
+                        title={language === "zh" ? r.zh : `${r.zh} (${r.en})`}
+                        className={`role-avatar-option ${assigned ? "assigned" : ""} ${current ? "current" : ""}`}
+                        onClick={() => {
+                          setPlayers((ps) =>
+                            ps.map((p) => (p.id === rolePlayer ? { ...p, role: r } : p)),
+                          );
+                          setToast(`已选择${r.zh}`);
+                        }}
+                      >
+                        <img src={r.image} alt="" />
+                      </button>
+                      {display.showRoleNames && (
+                        <small>{language === "zh" ? r.zh : `${r.zh} (${r.en})`}</small>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          ))}
+        </div>
+        <div className="role-picker-footer">
+          {roleStatusOpen && rolePlayer !== null && (
+            <div className="role-status-menu">
+              {marks.map((status) => {
+                const active = players.find((player) => player.id === rolePlayer)?.marks.includes(status.key);
+                return (
+                  <button
+                    key={status.key}
+                    className={active ? "selected" : ""}
+                    onClick={() => updateMark(rolePlayer, status.key)}
+                  >
+                    <img src={status.icon} alt="" />
+                    <span>{t(status.label === "死亡 · 幽灵票可用" ? "死亡" : status.label)}</span>
+                  </button>
                 );
+              })}
+            </div>
+          )}
+          <div className="role-picker-actions">
+            <button
+              className="role-status-trigger ui-button ui-button--secondary"
+              onClick={() => setRoleStatusOpen((open) => !open)}
+            >
+              <span className="role-status-selected-icons">
+                {rolePlayer !== null && players
+                  .find((player) => player.id === rolePlayer)
+                  ?.marks.filter((mark) => marks.some((status) => status.key === mark))
+                  .map((mark) => (
+                    <img key={mark} src={marks.find((status) => status.key === mark)?.icon} alt="" />
+                  ))}
+              </span>
+              <span>{t("添加状态")}</span>
+            </button>
+            <button
+              className="role-note-action ui-button ui-button--secondary"
+              onClick={() => {
+                if (rolePlayer === null) return;
+                const playerId = rolePlayer;
                 setRolePlayer(null);
-                setToast(`已选择${r.zh}`);
+                setRoleStatusOpen(false);
+                setNotePlayer(playerId);
               }}
             >
-              <img src={r.image} />
-              <span>
-                {r.zh}
-                <small>（{r.en}）</small>
-              </span>
+              <Pencil2Icon />
+              {t("添加笔记")}
             </button>
-          )})}
+            <button
+              className="role-save-close ui-button ui-button--primary"
+              onClick={() => {
+                setRolePlayer(null);
+                setRoleStatusOpen(false);
+              }}
+            >
+              {t("保存并关闭")}
+            </button>
+          </div>
         </div>
       </BottomSheet>
       <BottomSheet
@@ -1901,6 +2161,7 @@ export default function Prototype() {
             )
           }
           day={day}
+          alwaysShowDailyRoles={display.alwaysShowDailyRoles}
           edit={editPlayerDay}
           clear={clearPlayerDay}
         />
@@ -1942,6 +2203,7 @@ function Notes({
   peacefulDays,
   togglePeaceful,
   day,
+  alwaysShowDailyRoles,
   edit,
   clear,
 }: {
@@ -1953,6 +2215,7 @@ function Notes({
   peacefulDays: number[];
   togglePeaceful: (d: number) => void;
   day: number;
+  alwaysShowDailyRoles: boolean;
   edit: (playerId: number, recordDay: number) => void;
   clear: (playerId: number, recordDay: number) => void;
 }) {
@@ -1989,7 +2252,7 @@ function Notes({
           className={tab === "votes" ? "active" : ""}
           onClick={() => setTab("votes")}
         >
-          {t("投票记录")}
+          {t("每日记录")}
         </button>
       </div>
       {tab === "roles" ? (
@@ -2133,6 +2396,7 @@ function Notes({
           peacefulDays={peacefulDays}
           togglePeaceful={togglePeaceful}
           day={day}
+          alwaysShowDailyRoles={alwaysShowDailyRoles}
         />
       )}
     </div>
@@ -2146,6 +2410,7 @@ function VoteNotes({
   peacefulDays,
   togglePeaceful,
   day,
+  alwaysShowDailyRoles,
 }: {
   language: Language;
   players: Player[];
@@ -2154,6 +2419,7 @@ function VoteNotes({
   peacefulDays: number[];
   togglePeaceful: (d: number) => void;
   day: number;
+  alwaysShowDailyRoles: boolean;
 }) {
   const t = (text: string) => translate(language, text);
   const pairKey = (a: number, b: number) =>
@@ -2247,7 +2513,25 @@ function VoteNotes({
             (d) => d.day === recordDay && d.reason !== "revival",
           ).length,
           nominators = [...new Set(rs.map((relation) => relation.from))],
-          nominees = [...new Set(rs.map((relation) => relation.to))];
+          nominees = [...new Set(rs.map((relation) => relation.to))],
+          hasOrganicDayRecord = (player: Player) => {
+            const hasManualNote = Boolean(player.notes[recordDay]?.trim());
+            const hasDayEvent = deaths.some(
+              (event) => event.day === recordDay && event.playerId === player.id,
+            );
+            const hasDayStatus =
+              recordDay === day &&
+              (player.marks.includes("poison") ||
+                player.marks.includes("madness"));
+            return hasManualNote || hasDayEvent || hasDayStatus;
+          },
+          isFirstNightInfoReminder = (player: Player) =>
+            alwaysShowDailyRoles &&
+            recordDay === 1 &&
+            Boolean(player.role && firstNightInformationRoleIds.has(player.role.id)),
+          dayPlayers = players.filter(
+            (player) => hasOrganicDayRecord(player) || isFirstNightInfoReminder(player),
+          );
         return (
           <section className="vote-day-group" key={recordDay}>
             <div className="day-vote-header">
@@ -2264,52 +2548,323 @@ function VoteNotes({
               </small>
               <button
                 className={peacefulDays.includes(recordDay) ? "active" : ""}
+                aria-pressed={peacefulDays.includes(recordDay)}
                 onClick={() => togglePeaceful(recordDay)}
               >
-                <span className="peaceful-checkbox">
-                  {peacefulDays.includes(recordDay) && <CheckIcon />}
-                </span>
+                {!peacefulDays.includes(recordDay) && (
+                  <span className="peaceful-checkbox" />
+                )}
                 <span>{t("平安夜")}</span>
               </button>
             </div>
-            {rs.length ? (
-              rs.map((r, i) => {
-                const a = players.find((p) => p.id === r.from),
-                  b = players.find((p) => p.id === r.to);
-                return (
-                  <article key={r.id}>
-                    <span>
-                      {language === "zh"
-                        ? `第 ${i + 1} 次提名`
-                        : `Nomination ${i + 1}`}
-                    </span>
-                    <b>
-                      {r.from}
-                      {a?.role
-                        ? ` ${language === "zh" ? a.role.zh : `${a.role.zh} (${a.role.en})`}`
-                        : ""}{" "}
-                      → {r.to}
-                      {b?.role
-                        ? ` ${language === "zh" ? b.role.zh : `${b.role.zh} (${b.role.en})`}`
-                        : ""}
-                    </b>
-                    <p>
-                      {t("投票")}{" "}
-                      {r.votes?.join("、") ||
-                        (language === "zh" ? "无" : "None")} ·{" "}
-                      {r.votes?.length || 0}
-                      {t("票")} {r.executed && <strong>· {t("标记处决")}</strong>}
-                    </p>
-                  </article>
-                );
-              })
-            ) : (
-              <p className="empty">{t("当天还没有投票记录")}</p>
-            )}
+            <div className="daily-notes-section">
+              <h4>{t("当天笔记")}</h4>
+              {dayPlayers.length ? (
+                <div className="daily-player-notes">
+                  {dayPlayers.map((player) => {
+                    const dayEvents = deaths.filter(
+                      (event) =>
+                        event.day === recordDay && event.playerId === player.id,
+                    );
+                    return (
+                      <article
+                        className={`daily-player-note ${
+                          isFirstNightInfoReminder(player) && !hasOrganicDayRecord(player)
+                            ? "first-night-reminder"
+                            : ""
+                        }`}
+                        key={player.id}
+                      >
+                        <img
+                          src={player.role?.image || defaultPortrait(player.id)}
+                          alt=""
+                        />
+                        <div className="daily-player-note-copy">
+                          <div className="daily-player-note-meta">
+                            <b>
+                              {player.id}{player.name ? ` ${player.name}` : ""}
+                            </b>
+                            {player.role && (
+                              <>
+                                <span>·</span>
+                                <span>
+                                  {language === "zh"
+                                    ? player.role.zh
+                                    : `${player.role.zh} (${player.role.en})`}
+                                </span>
+                              </>
+                            )}
+                            {isFirstNightInfoReminder(player) && !hasOrganicDayRecord(player) && (
+                              <i className="first-night-info-tag">{t("首夜信息")}</i>
+                            )}
+                            {player.marks.includes("drunk") && (
+                              <i className="record-tag tag-drunk">{t("酒鬼")}</i>
+                            )}
+                            {recordDay === day && player.marks.includes("poison") && (
+                              <i className="record-tag poison">{t("中毒")}</i>
+                            )}
+                            {recordDay === day && player.marks.includes("madness") && (
+                              <i className="record-tag madness">{t("疯狂")}</i>
+                            )}
+                            {dayEvents.some(
+                              (event) =>
+                                event.reason === "execution" || event.reason === "manual",
+                            ) && (
+                              <i className="record-tag tag-death">{t("死亡")}</i>
+                            )}
+                            {dayEvents.some((event) => event.reason === "revival") && (
+                              <i className="record-tag tag-revival">{t("复活")}</i>
+                            )}
+                          </div>
+                          {player.notes[recordDay] && (
+                            <p>{player.notes[recordDay]}</p>
+                          )}
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="empty">{t("当天还没有玩家笔记")}</p>
+              )}
+            </div>
+            <div className="daily-votes-section">
+              <h4>{t("当天投票记录")}</h4>
+              {rs.length ? (
+                rs.map((r) => {
+                  const a = players.find((p) => p.id === r.from),
+                    b = players.find((p) => p.id === r.to);
+                  return (
+                    <article className="daily-vote-record" key={r.id}>
+                      <b>
+                        {r.from}
+                        {a?.role
+                          ? ` ${language === "zh" ? a.role.zh : `${a.role.zh} (${a.role.en})`}`
+                          : ""}{" "}
+                        → {r.to}
+                        {b?.role
+                          ? ` ${language === "zh" ? b.role.zh : `${b.role.zh} (${b.role.en})`}`
+                          : ""}
+                      </b>
+                      <p>
+                        {t("投票")}{" "}
+                        {r.votes?.join("、") ||
+                          (language === "zh" ? "无" : "None")} ·{" "}
+                        {r.votes?.length || 0}
+                        {t("票")} {r.executed && <strong>· {t("标记处决")}</strong>}
+                      </p>
+                    </article>
+                  );
+                })
+              ) : (
+                <p className="empty">{t("当天还没有投票记录")}</p>
+              )}
+            </div>
           </section>
         );
       })}
     </div>
+  );
+}
+
+function ScriptPreviewContent({
+  board,
+  language,
+}: {
+  board: ScriptBoard;
+  language: Language;
+}) {
+  const [abilityEn, setAbilityEn] = useState<Record<string, string>>({});
+  const [roleZh, setRoleZh] = useState<
+    Record<string, { ability?: string; first?: string; other?: string }>
+  >({});
+  useEffect(() => {
+    fetch(assetUrl("clocktower/official-roles.json"))
+      .then((response) => response.json())
+      .then((data: { id: string; ability: string }[]) =>
+        setAbilityEn(Object.fromEntries(data.map((role) => [role.id, role.ability]))),
+      )
+      .catch(() => undefined);
+    fetch(assetUrl("clocktower/official-roles-zh.json"))
+      .then((response) => response.json())
+      .then((data: { roles: typeof roleZh }) => setRoleZh(data.roles || {}))
+      .catch(() => undefined);
+  }, []);
+  const boardRoles = roles.filter((role) => board.roleIds.includes(role.id));
+  const orderedNightRoles = (order: string[], kind: "first" | "other") =>
+    order
+      .filter((id) => board.roleIds.includes(id))
+      .map((id) => roles.find((role) => role.id === id))
+      .filter((role): role is Role => Boolean(role))
+      .filter((role) =>
+        kind === "first"
+          ? Boolean(role.firstNightReminderZh || roleZh[role.id]?.first)
+          : Boolean(role.otherNightReminderZh || roleZh[role.id]?.other),
+      );
+  const firstRoles = orderedNightRoles(firstNightOrder, "first");
+  const otherRoles = orderedNightRoles(otherNightOrder, "other");
+  const counts = (["镇民", "外来者", "爪牙", "恶魔"] as Team[]).map(
+    (team) => boardRoles.filter((role) => role.team === team).length,
+  );
+  const roleAbility = (role: Role) =>
+    language === "zh"
+      ? role.abilityZh || roleZh[role.id]?.ability || "能力说明载入中…"
+      : abilityEn[role.id] || role.abilityZh || roleZh[role.id]?.ability || "Ability text unavailable";
+  const nightReminder = (role: Role, kind: "first" | "other") =>
+    language === "zh"
+      ? (kind === "first"
+          ? role.firstNightReminderZh || roleZh[role.id]?.first
+          : role.otherNightReminderZh || roleZh[role.id]?.other) || "按角色能力执行。"
+      : abilityEn[role.id] || roleAbility(role);
+  const NightRail = ({ kind }: { kind: "first" | "other" }) => {
+    const list = kind === "first" ? firstRoles : otherRoles;
+    return (
+      <aside className={`night-rail ${kind}`}>
+        <h3>{kind === "first" ? "首个夜晚" : "其他夜晚"}</h3>
+        <ol>
+          {kind === "first" && <li className="system-night">爪牙信息</li>}
+          {kind === "first" && <li className="system-night">恶魔信息</li>}
+          {list.map((role) => (
+            <li key={`${kind}-${role.id}`} title={nightReminder(role, kind)}>
+              <img src={role.image} alt="" />
+              <span>{language === "zh" ? role.zh : role.en}</span>
+            </li>
+          ))}
+          <li className="system-night">黎明</li>
+        </ol>
+      </aside>
+    );
+  };
+  return (
+    <div className="script-preview">
+      <div className="preview-title">
+        <div>
+          <h2>{board.name}</h2>
+          <p>
+            {board.sourceLabel || (board.official ? "官方默认板子" : "我的板子")}
+            {board.author ? `（作者：${board.author}）` : ""} · {board.roleIds.length} 个角色
+          </p>
+          <span>{counts[0]} 镇民 · {counts[1]} 外来者 · {counts[2]} 爪牙 · {counts[3]} 恶魔</span>
+        </div>
+      </div>
+      <div className="preview-sheet">
+        <NightRail kind="first" />
+        <div className="preview-role-body">
+          {(["镇民", "外来者", "爪牙", "恶魔"] as Team[]).map((team) => {
+            const teamRoles = boardRoles.filter((role) => role.team === team);
+            if (!teamRoles.length) return null;
+            return (
+              <section className={`preview-team team-${team}`} key={team}>
+                <h3>{team === "镇民" || team === "外来者" ? "善良阵营" : "邪恶阵营"} · {team}（{teamRoles.length}）</h3>
+                <div className="preview-role-grid">
+                  {teamRoles.map((role) => (
+                    <article key={role.id}>
+                      <img src={role.image} alt="" />
+                      <div>
+                        <b>{role.zh}{role.en ? `（${role.en}）` : ""}</b>
+                        <p>{roleAbility(role)}</p>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            );
+          })}
+          {board.specialRule && (
+            <section className="special-rule">
+              <h3>特殊规则 · 全员失忆</h3>
+              <p>{board.specialRule}</p>
+            </section>
+          )}
+          <section className="status-explainer">
+            <h3>中毒／醉酒</h3>
+            <p><b>中毒：</b>玩家暂时失去角色能力；说书人可以让其像能力仍有效一样行动，并给予错误信息。</p>
+            <p><b>醉酒：</b>处理方式与中毒相同，但通常来自玩家自己的角色或另一角色能力。</p>
+          </section>
+        </div>
+        <NightRail kind="other" />
+      </div>
+    </div>
+  );
+}
+
+function BoardPreviewModal({
+  board,
+  language,
+  close,
+}: {
+  board: ScriptBoard;
+  language: Language;
+  close: () => void;
+}) {
+  return (
+    <div className="board-preview-overlay" role="dialog" aria-modal="true">
+      <section className="board-preview-modal">
+        <header>
+          <span>板子预览</span>
+          <button aria-label="关闭" onClick={close}><Cross2Icon /></button>
+        </header>
+        <div className="board-preview-scroll" data-scroll-drag="ignore">
+          <ScriptPreviewContent board={board} language={language} />
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function BoardCard({
+  board,
+  language,
+  selected,
+  select,
+  preview,
+  duplicate,
+  edit,
+  remove,
+}: {
+  board: ScriptBoard;
+  language: Language;
+  selected: boolean;
+  select: () => void;
+  preview: () => void;
+  duplicate?: () => void;
+  edit?: () => void;
+  remove?: () => void;
+}) {
+  const tr = (text: string) => translate(language, text);
+  const counts = (["镇民", "外来者", "爪牙", "恶魔"] as Team[]).map(
+    (team) => roles.filter((role) => board.roleIds.includes(role.id) && role.team === team).length,
+  );
+  return (
+    <article className={`script-card ${selected ? "selected" : ""}`}>
+      <button className="script-select" onClick={select}>
+        <span className="radio">{selected && <CheckIcon />}</span>
+        <div>
+          <b>{board.name}</b>
+          <small>
+            {board.sourceLabel || tr(board.official ? "官方默认板子" : "我的板子")}
+            {board.author ? `（作者：${board.author}）` : ""} · {board.roleIds.length} {tr("个角色")}
+          </small>
+          <em>
+            {counts[0]} {teamText(language, "镇民")} · {counts[1]} {teamText(language, "外来者")} · {counts[2]} {teamText(language, "爪牙")} · {counts[3]} {teamText(language, "恶魔")}
+          </em>
+        </div>
+      </button>
+      <div className="board-card-actions">
+        <button aria-label={tr("预览")} className="preview-cta" onClick={preview}>
+          <EyeOpenIcon />
+        </button>
+        {duplicate && (
+          <button aria-label={tr("复制板子")} onClick={duplicate}><CopyIcon /></button>
+        )}
+        {edit && (
+          <button aria-label={tr("编辑板子")} onClick={edit}><Pencil1Icon /></button>
+        )}
+        {remove && (
+          <button aria-label={tr("删除板子")} onClick={remove}><TrashIcon /></button>
+        )}
+      </div>
+    </article>
   );
 }
 
@@ -2347,16 +2902,19 @@ function StartScreen({
   setManualOpen: (v: boolean) => void;
 }) {
   const t = (text: string) => translate(language, text);
+  const [previewBoard, setPreviewBoard] = useState<ScriptBoard | null>(null);
+  const [setupStep, setSetupStep] = useState<1 | 2>(1);
+  const [boardQuery, setBoardQuery] = useState("");
   const selected = boards.find((b) => b.id === selectedId) || boards[0];
-  const counts = (b: ScriptBoard) =>
-    (["镇民", "外来者", "爪牙", "恶魔"] as Team[]).map(
-      (t) =>
-        roles.filter((r) => b.roleIds.includes(r.id) && r.team === t).length,
-    );
+  const visibleBoards = boards.filter((board) =>
+    `${board.name} ${board.sourceLabel || ""} ${board.author || ""}`
+      .toLocaleLowerCase()
+      .includes(boardQuery.trim().toLocaleLowerCase()),
+  );
   const total = Object.values(composition).reduce((a, b) => a + b, 0);
   return (
     <MobileScroll className="app-screen">
-      <main className="clock-app start-screen">
+      <main className="clock-app start-screen" data-setup-step={setupStep}>
         <header className="start-hero">
           <div className="start-heading-row">
             <div>
@@ -2374,7 +2932,8 @@ function StartScreen({
             </div>
           </div>
         </header>
-        <section className="setup-card">
+        <div className="start-layout">
+        <section className="setup-card board-setup">
           <div className="section-title">
             <div>
               <small>{t("第一步")}</small>
@@ -2382,36 +2941,33 @@ function StartScreen({
             </div>
             <button onClick={() => setManager(true)}>{t("管理板子")}</button>
           </div>
+          <label className="board-search">
+            <MagnifyingGlassIcon />
+            <input
+              value={boardQuery}
+              onChange={(event) => setBoardQuery(event.target.value)}
+              placeholder={t("搜索板子")}
+              aria-label={t("搜索板子")}
+            />
+          </label>
           <div className="script-list" data-scroll-drag="ignore">
-            {boards.map((b) => {
-              const c = counts(b);
-              return (
-                <button
-                  key={b.id}
-                  className={selectedId === b.id ? "selected" : ""}
-                  onClick={() => setSelectedId(b.id)}
-                >
-                  <span className="radio">
-                    {selectedId === b.id && <CheckIcon />}
-                  </span>
-                  <div>
-                    <b>{b.name}</b>
-                    <small>
-                      {t(b.official ? "官方默认板子" : "我的板子")} ·{" "}
-                      {b.roleIds.length} {t("个角色")}
-                    </small>
-                    <em>
-                      {c[0]} {teamText(language, "镇民")} · {c[1]}{" "}
-                      {teamText(language, "外来者")} · {c[2]}{" "}
-                      {teamText(language, "爪牙")} · {c[3]}{" "}
-                      {teamText(language, "恶魔")}
-                    </em>
-                  </div>
-                </button>
-              );
-            })}
+            {visibleBoards.map((board) => (
+              <BoardCard
+                key={board.id}
+                board={board}
+                language={language}
+                selected={selectedId === board.id}
+                select={() => setSelectedId(board.id)}
+                preview={() => setPreviewBoard(board)}
+              />
+            ))}
           </div>
+          <button className="setup-next ui-button ui-button--secondary" onClick={() => setSetupStep(2)}>
+            {t("下一步")}
+            <ArrowRightIcon />
+          </button>
         </section>
+        <div className="start-side">
         <section className="setup-card player-setup">
           <div className="section-title">
             <div>
@@ -2462,19 +3018,27 @@ function StartScreen({
             {teamText(language, "恶魔")}，{t("共生成")} {total} {t("个座位")}。
           </p>
         </section>
-        <button
-          className="start-game"
-          disabled={!selected || total < 5 || total > 20}
-          onClick={start}
-        >
-          {t("开始游戏")} · {total}
-          {t("人")}
-        </button>
+        <div className="start-action-row">
+          <button className="setup-back ui-button ui-button--secondary" onClick={() => setSetupStep(1)}>
+            <ArrowLeftIcon />
+            {t("上一步")}
+          </button>
+          <button
+            className="start-game ui-button ui-button--primary"
+            disabled={!selected || total < 5 || total > 20}
+            onClick={start}
+          >
+            {t("开始游戏")} · {total}
+            {t("人")}
+          </button>
+        </div>
         <small className="ccc-note">
           {t(
             "使用官方 Toolmaker 角色资源 · 非 The Pandemonium Institute 官方产品",
           )}
         </small>
+        </div>
+        </div>
         {manager && (
           <BoardManager
             language={language}
@@ -2483,6 +3047,13 @@ function StartScreen({
             selectedId={selectedId}
             select={setSelectedId}
             close={() => setManager(false)}
+          />
+        )}
+        {previewBoard && (
+          <BoardPreviewModal
+            board={previewBoard}
+            language={language}
+            close={() => setPreviewBoard(null)}
           />
         )}
         <BottomSheet
@@ -2500,7 +3071,7 @@ function StartScreen({
             <Cross2Icon />
           </button>
           <div className="manual-copy">
-            <p>{t("轻点头像添加状态标记；长按头像选择角色；按住拖动建立提名、保或踩关系。")}</p>
+            <p>{t("轻点头像选择角色；长按头像添加状态标记；按住拖动建立提名、保或踩关系。")}</p>
             <p>{t("死亡玩家投票后会自动消耗幽灵票；已消耗幽灵票的玩家不能继续投票。")}</p>
           </div>
         </BottomSheet>
@@ -2571,6 +3142,7 @@ function BoardManager({
         ).length,
     );
   const [editing, setEditing] = useState<string | null>(null),
+    [previewing, setPreviewing] = useState<ScriptBoard | null>(null),
     [query, setQuery] = useState(""),
     [tab, setTab] = useState<Team>("镇民");
   const board = boards.find((b) => b.id === editing);
@@ -2583,6 +3155,7 @@ function BoardManager({
       name: `${b.name} · ${tr("副本")}`,
       official: false,
       roleIds: [...b.roleIds],
+      sourceLabel: "我的板子",
     };
     setBoards([...boards, copy]);
     setEditing(copy.id);
@@ -2720,7 +3293,8 @@ function BoardManager({
           <small>{tr("当前选择")}</small>
           <b>{selected.name}</b>
           <span>
-            {tr(selected.official ? "官方默认板子" : "我的板子")} ·{" "}
+            {selected.sourceLabel || tr(selected.official ? "官方默认板子" : "我的板子")}
+            {selected.author ? `（作者：${selected.author}）` : ""} ·{" "}
             {selected.roleIds.length} {tr("个角色")}
           </span>
           <em>
@@ -2731,60 +3305,19 @@ function BoardManager({
           </em>
         </div>
         <div className="manage-list" data-scroll-drag="ignore">
-          {boards.map((b) => {
-            const c = counts(b);
-            return (
-              <article
-                className={b.id === selectedId ? "selected" : ""}
-                key={b.id}
-              >
-                <button className="board-main" onClick={() => select(b.id)}>
-                  <span className="radio">
-                    {b.id === selectedId && <CheckIcon />}
-                  </span>
-                  <div>
-                    <b>{b.name}</b>
-                    <small>
-                      {tr(b.official ? "官方默认板子" : "我的板子")} ·{" "}
-                      {b.roleIds.length} {tr("个角色")}
-                    </small>
-                    <em>
-                      {c[0]} {teamText(language, "镇民")} · {c[1]}{" "}
-                      {teamText(language, "外来者")} · {c[2]}{" "}
-                      {teamText(language, "爪牙")} · {c[3]}{" "}
-                      {teamText(language, "恶魔")}
-                    </em>
-                  </div>
-                </button>
-                <div className="board-card-actions">
-                <button
-                  aria-label={tr("复制板子")}
-                  onClick={() => duplicate(b)}
-                >
-                  <CopyIcon />
-                </button>
-                {!b.official && (
-                  <button
-                    aria-label={tr("编辑板子")}
-                    onClick={() => setEditing(b.id)}
-                  >
-                    <Pencil1Icon />
-                  </button>
-                )}
-                {!b.official && (
-                  <button
-                    aria-label={tr("删除板子")}
-                    onClick={() =>
-                      setBoards(boards.filter((x) => x.id !== b.id))
-                    }
-                  >
-                    <TrashIcon />
-                  </button>
-                )}
-                </div>
-              </article>
-            );
-          })}
+          {boards.map((board) => (
+            <BoardCard
+              key={board.id}
+              board={board}
+              language={language}
+              selected={board.id === selectedId}
+              select={() => select(board.id)}
+              preview={() => setPreviewing(board)}
+              duplicate={() => duplicate(board)}
+              edit={!board.official ? () => setEditing(board.id) : undefined}
+              remove={!board.official ? () => setBoards(boards.filter((item) => item.id !== board.id)) : undefined}
+            />
+          ))}
         </div>
         <footer className="manager-footer">
           <button className="new-board" onClick={create}>
@@ -2793,6 +3326,13 @@ function BoardManager({
           </button>
         </footer>
       </section>
+      {previewing && (
+        <BoardPreviewModal
+          board={previewing}
+          language={language}
+          close={() => setPreviewing(null)}
+        />
+      )}
     </div>
   );
 }

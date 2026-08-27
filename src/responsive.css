@@ -1,0 +1,1005 @@
+html,
+body,
+#root,
+.web-stage,
+.web-screen,
+.mobile-app-viewport,
+.mobile-page,
+.app-screen {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  background-color: #dfcca7 !important;
+}
+
+.utility-actions > button {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(91, 62, 37, 0.3);
+  border-radius: 10px;
+  background: rgba(248, 235, 207, 0.82);
+  color: #573c2b;
+  box-shadow: 0 3px 8px rgba(76, 49, 27, 0.08);
+}
+.utility-actions > button svg,
+.utility-actions > button img {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
+.bottom-tools .script-info-icon {
+  display: none;
+}
+.start-layout,
+.start-side {
+  display: contents;
+}
+
+@media (max-width: 699px) {
+  body #root .bottom-tools {
+    display: grid !important;
+    grid-template-columns: 44px minmax(0, 1fr) !important;
+    width: auto !important;
+  }
+  body #root .bottom-tools .script-info-icon {
+    display: grid !important;
+  }
+  body #root .bottom-tools .open-notes {
+    display: block !important;
+    grid-column: 2 !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    writing-mode: horizontal-tb !important;
+    white-space: nowrap;
+  }
+}
+
+/* Three-stage in-game responsive navigation.
+   1) <=450: one hamburger + notes CTA.
+   2) 451-1099: three explicit utilities + notes CTA.
+   3) >=1100: permanent notes column and desktop header utilities. */
+.compact-tools-menu,
+.manual-bottom-button,
+.settings-bottom-button {
+  display: none;
+}
+
+@media (max-width: 1099px) {
+  body #root .clock-app:not(.start-screen) .topbar {
+    display: flex !important;
+    flex-direction: column;
+    gap: 7px;
+  }
+  body #root .clock-app:not(.start-screen) .title-day-row {
+    order: 1;
+  }
+  body #root .clock-app:not(.start-screen) .game-board-row {
+    order: 2;
+    width: 100%;
+    min-width: 0;
+    display: block !important;
+    padding: 0;
+  }
+  body #root .clock-app:not(.start-screen) .game-board-row .utility-actions {
+    display: none !important;
+  }
+  body #root .clock-app:not(.start-screen) .game-meta {
+    width: 100%;
+    min-width: 0;
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 0;
+    margin-top: 7px;
+    padding: 0 2px;
+    overflow: hidden;
+    color: #715d49;
+    font-size: 11px;
+    line-height: 1.35;
+    white-space: nowrap;
+  }
+  body #root .clock-app:not(.start-screen) .game-meta span {
+    min-width: 0;
+    flex: 0 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  body #root .clock-app:not(.start-screen) .game-meta span::after {
+    content: " · ";
+  }
+  body #root .clock-app:not(.start-screen) .game-meta small {
+    flex: 0 0 auto;
+    font-size: inherit;
+  }
+  body #root .desktop-notes-column {
+    display: none !important;
+  }
+  body #root .bottom-tools {
+    position: fixed !important;
+    z-index: 80;
+    right: max(12px, env(safe-area-inset-right));
+    bottom: max(10px, env(safe-area-inset-bottom));
+    left: max(12px, env(safe-area-inset-left));
+    width: auto !important;
+    display: grid !important;
+    grid-template-columns: 44px 44px 44px minmax(0, 1fr) !important;
+    gap: 8px;
+    align-items: stretch;
+  }
+  body #root .bottom-tools .bottom-utility {
+    width: 44px !important;
+    height: 44px !important;
+    display: grid !important;
+    place-items: center;
+    margin: 0 !important;
+  }
+  body #root .bottom-tools .manual-bottom-button,
+  body #root .bottom-tools .settings-bottom-button {
+    display: grid !important;
+  }
+  body #root .bottom-tools .open-notes {
+    grid-column: 4 !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 44px;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    margin: 0 !important;
+    white-space: nowrap;
+  }
+  body #root .compact-tools-menu {
+    display: none;
+  }
+}
+
+@media (max-width: 450px) {
+  body #root .bottom-tools {
+    grid-template-columns: 44px minmax(0, 1fr) !important;
+  }
+  body #root .bottom-tools .bottom-utility {
+    display: none !important;
+  }
+  body #root .bottom-tools .open-notes {
+    grid-column: 2 !important;
+  }
+  body #root .compact-tools-menu {
+    position: relative;
+    display: block;
+    grid-column: 1;
+  }
+  body #root .compact-menu-trigger {
+    width: 44px;
+    height: 44px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+  }
+  body #root .compact-menu-trigger svg {
+    width: 21px;
+    height: 21px;
+  }
+  body #root .compact-menu-popover {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 0;
+    width: max-content;
+    min-width: 150px;
+    display: grid;
+    gap: 3px;
+    padding: 6px;
+    border: 1px solid rgba(91, 62, 37, 0.22);
+    border-radius: 12px;
+    background: #fff8eb;
+    box-shadow: 0 12px 28px rgba(55, 34, 19, 0.2);
+  }
+  body #root .compact-menu-popover button {
+    min-height: 40px;
+    display: grid;
+    grid-template-columns: 22px 1fr;
+    align-items: center;
+    gap: 9px;
+    padding: 7px 10px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: #513728;
+    text-align: center;
+  }
+  body #root .compact-menu-popover button:active {
+    background: #efe0c5;
+  }
+  body #root .compact-menu-popover svg {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+@media (max-width: 959px) {
+  body #root .clock-app.start-screen {
+    height: 100dvh !important;
+    min-height: 0 !important;
+    display: grid !important;
+    grid-template-rows: auto minmax(0, 1fr) !important;
+    padding: 12px 12px calc(12px + env(safe-area-inset-bottom)) !important;
+    overflow: hidden !important;
+  }
+  .start-screen .start-hero { padding: 2px 0 12px; }
+  .start-screen .start-layout {
+    min-height: 0;
+    display: block !important;
+  }
+  .start-screen .board-setup,
+  .start-screen .start-side {
+    height: 100%;
+    min-height: 0;
+    margin: 0;
+  }
+  .start-screen .board-setup {
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    overflow: hidden;
+  }
+  .start-screen .board-setup .script-list {
+    min-height: 0;
+    grid-template-columns: minmax(0, 1fr) !important;
+    align-content: start;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .start-screen .start-side {
+    display: flex !important;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .start-screen[data-setup-step="1"] .start-side,
+  .start-screen[data-setup-step="2"] .board-setup { display: none !important; }
+  .start-screen .setup-next {
+    width: 100%;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    margin-top: 10px;
+  }
+  .start-screen .start-action-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 8px;
+    margin-top: auto;
+  }
+  .start-screen .setup-back,
+  .start-screen .start-action-row .start-game {
+    height: 52px;
+    margin: 0;
+  }
+  .start-screen .setup-back {
+    min-width: 92px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+  }
+}
+
+@media (min-width: 960px) {
+  body #root .clock-app.start-screen {
+    width: 100% !important;
+    max-width: none !important;
+    height: 100vh !important;
+    padding: 28px 32px 24px !important;
+    display: grid !important;
+    grid-template-rows: auto minmax(0, 1fr) !important;
+    overflow: hidden !important;
+  }
+  .start-screen .start-hero { padding: 4px 0 22px; }
+  .start-screen .start-layout {
+    min-height: 0;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) 375px;
+    gap: 18px;
+  }
+  .start-screen .board-setup {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    overflow: hidden;
+  }
+  .start-screen .board-setup .script-list {
+    min-height: 0;
+    flex: 1;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    align-content: start;
+    overflow-y: auto;
+  }
+  .start-screen .start-side {
+    min-height: 0;
+    display: flex !important;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .start-screen .start-side .player-setup { margin: 0; }
+  .start-screen .start-action-row { margin-top: auto; }
+  .start-screen .start-action-row .start-game { width: 100%; margin: 0; }
+  .start-screen .setup-next,
+  .start-screen .setup-back { display: none !important; }
+}
+
+@media (min-width: 1100px) {
+  body #root .clock-app.start-screen {
+    width: 100% !important;
+    max-width: none !important;
+    height: 100vh !important;
+    padding: 28px 32px 24px !important;
+    display: grid !important;
+    grid-template-rows: auto minmax(0, 1fr) !important;
+    overflow: hidden !important;
+  }
+  .start-screen .start-hero {
+    padding: 4px 0 22px;
+  }
+  .start-layout {
+    min-height: 0;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) 375px;
+    gap: 18px;
+  }
+  .start-screen .board-setup {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    overflow: hidden;
+  }
+  .start-screen .board-setup .script-list {
+    min-height: 0;
+    flex: 1;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    align-content: start;
+    overflow-y: auto;
+  }
+  .start-side {
+    min-height: 0;
+    display: flex !important;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .start-side .player-setup {
+    margin: 0;
+  }
+  .start-side .start-action-row { margin-top: auto; }
+
+  body #root .clock-app:not(.start-screen) {
+    width: 100% !important;
+    max-width: none !important;
+    height: 100vh !important;
+    padding: 48px 48px 28px !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 3fr) minmax(420px, 2fr) !important;
+    grid-template-rows: 112px minmax(0, 1fr) auto !important;
+    gap: 12px 30px !important;
+    overflow: hidden !important;
+  }
+  body #root .clock-app:not(.start-screen)::before {
+    inset: 0 !important;
+  }
+  body #root .topbar {
+    position: static !important;
+    grid-column: 1 / -1 !important;
+    grid-row: 1 !important;
+    width: 100% !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 3fr) minmax(420px, 2fr) !important;
+    gap: 30px !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+  #root .topbar .game-board-row {
+    position: static !important;
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+    width: auto !important;
+    display: grid !important;
+    grid-template-columns: auto 1fr auto;
+    margin: 0 !important;
+    padding-top: 10px;
+  }
+  #root .topbar .utility-actions {
+    grid-column: 1;
+    grid-row: 1;
+    flex: none;
+  }
+  #root .topbar .utility-actions .settings-button { order: 1; }
+  #root .topbar .utility-actions .board-utility-button { order: 2; }
+  #root .topbar .utility-actions .manual-utility-button { order: 3; }
+  #root .topbar .game-meta {
+    grid-column: 2;
+    justify-self: center;
+    width: max-content;
+    max-width: 68%;
+    padding-top: 3px;
+    text-align: left;
+  }
+  #root .topbar .title-day-row {
+    position: static !important;
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+    width: auto !important;
+    display: flex !important;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 0 3px 0 6px;
+  }
+  #root .topbar .day-actions {
+    display: flex !important;
+    gap: 7px;
+    padding-top: 25px;
+  }
+  #root .topbar .day-actions button {
+    height: 38px;
+    min-width: 0;
+    padding: 0 10px;
+  }
+  body #root .dial-section {
+    grid-column: 1 !important;
+    grid-row: 2 !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    display: grid !important;
+    place-items: center;
+    padding: 0 0 8px;
+    overflow: hidden !important;
+  }
+  body #root .town-dial {
+    width: min(84%, calc(100vh - 250px)) !important;
+    height: auto !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    aspect-ratio: 1;
+  }
+  body #root .desktop-notes-column {
+    grid-column: 2 !important;
+    grid-row: 2 / 4 !important;
+    min-height: 0;
+    display: flex !important;
+    flex-direction: column;
+    padding: 26px 28px 20px !important;
+    border: 1px solid rgba(91, 62, 37, 0.15) !important;
+    border-radius: 24px;
+    background: #fff !important;
+    box-shadow: 0 8px 24px rgba(70, 43, 24, 0.07);
+    overflow: hidden;
+  }
+  body #root .desktop-notes-compact {
+    min-height: 0;
+    display: block !important;
+    flex: 1;
+    overflow-y: auto;
+  }
+  body #root .desktop-notes-wide {
+    display: none !important;
+  }
+  body #root .possibilities {
+    position: static !important;
+    z-index: 12;
+    grid-column: 1 !important;
+    grid-row: 3 !important;
+    width: min(100%, 720px);
+    margin: 0 auto !important;
+    justify-self: center;
+  }
+  body #root .possibility-track {
+    flex-direction: row !important;
+    justify-content: center;
+    flex-wrap: nowrap;
+    padding: 8px 0 0;
+  }
+  body #root .possibilities button {
+    width: auto !important;
+    min-width: 112px;
+  }
+  body #root .possibilities .add-possibility:disabled {
+    display: none;
+  }
+  body #root .bottom-tools,
+  body #root .toast {
+    display: none !important;
+  }
+}
+
+@media (min-width: 1580px) {
+  .start-screen .board-setup .script-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+}
+
+/* Script cards and reference-sheet preview */
+.script-card {
+  position: relative;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  border: 1px solid #d8c5a8;
+  border-radius: 12px;
+  background: #fffaf0;
+  color: #3b2a20;
+  overflow: hidden;
+}
+.script-card.selected {
+  border-color: #8f2828;
+  background: #fff4e5;
+  box-shadow: 0 0 0 1px rgba(143, 40, 40, 0.15);
+}
+.script-card .script-select {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 7px 11px 11px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+.script-card .script-select > div { min-width: 0; }
+.script-card b,
+.script-card small,
+.script-card em { display: block; }
+.script-card b { font-size: 14px; line-height: 1.35; }
+.script-card small {
+  max-width: 100%;
+  margin-top: 3px;
+  overflow: hidden;
+  color: #8b7561;
+  font-size: 10px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.script-card em { margin-top: 5px; color: #6d5036; font-size: 10px; font-style: normal; }
+.script-card .preview-cta {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #7f2527;
+  font-weight: 700;
+}
+.script-card .preview-cta svg { width: 16px; height: 16px; }
+.script-card > .board-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 5px 6px 5px 0;
+  border: 0;
+}
+.script-card > .board-card-actions > button {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #754f39;
+}
+.script-card > .board-card-actions > button:hover { background: rgba(126, 87, 53, 0.1); }
+.script-card > .board-card-actions .preview-cta {
+  min-width: 32px;
+}
+
+@media (min-width: 1400px) {
+  .start-screen .board-setup .script-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (min-width: 1900px) {
+  .start-screen .board-setup .script-list {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  body #root .manager-sheet:not(.editor) {
+    width: min(1120px, calc(100% - 48px));
+  }
+  body #root .manager-sheet:not(.editor) .manage-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1600px) {
+  body #root .manager-sheet:not(.editor) {
+    width: min(1480px, calc(100% - 64px));
+  }
+  body #root .manager-sheet:not(.editor) .manage-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.board-preview-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 240;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(31, 21, 15, 0.36);
+}
+.board-preview-modal {
+  width: min(1180px, 100%);
+  height: min(860px, calc(100dvh - 40px));
+  min-height: 0;
+  display: grid;
+  grid-template-rows: 48px minmax(0, 1fr);
+  border: 1px solid rgba(80, 59, 39, 0.22);
+  border-radius: 20px;
+  background: #f4ead5;
+  box-shadow: 0 24px 70px rgba(35, 22, 13, 0.28);
+  overflow: hidden;
+}
+.board-preview-modal > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 14px 0 20px;
+  border-bottom: 1px solid rgba(91, 62, 37, 0.15);
+  color: #632123;
+  font-weight: 800;
+}
+.board-preview-modal > header button {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #633d2b;
+}
+.board-preview-scroll,
+.in-game-board-preview {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.script-preview { min-width: 0; padding: 22px; }
+.preview-title {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 18px;
+  text-align: center;
+}
+.preview-title h2 {
+  margin: 0;
+  color: #1a728e;
+  font-family: "Songti SC", "STSong", serif;
+  font-size: clamp(28px, 4vw, 54px);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+}
+.preview-title p,
+.preview-title span { margin: 5px 0 0; color: #76634f; font-size: 12px; }
+.preview-title span { display: block; }
+.preview-sheet {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr) 112px;
+  gap: 14px;
+  align-items: stretch;
+}
+.night-rail {
+  min-width: 0;
+  padding: 13px 8px;
+  border-radius: 16px;
+  background: #18374a;
+  color: #f8f1df;
+}
+.night-rail h3 {
+  margin: 0 0 10px;
+  text-align: center;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+}
+.night-rail ol { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.night-rail li {
+  min-width: 0;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  color: #f7f0df;
+  font-size: 9px;
+  text-align: center;
+}
+.night-rail li img {
+  width: 31px;
+  height: 31px;
+  object-fit: contain;
+}
+.night-rail .system-night {
+  padding: 4px 2px;
+  border: 1px solid rgba(255,255,255,.26);
+  border-radius: 999px;
+}
+.preview-role-body { min-width: 0; }
+.preview-team { margin-bottom: 18px; }
+.preview-team > h3 {
+  margin: 0 0 9px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid currentColor;
+  color: #197495;
+  font-size: 14px;
+}
+.preview-team.team-爪牙 > h3,
+.preview-team.team-恶魔 > h3 { color: #8d292d; }
+.preview-role-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px 18px;
+}
+.preview-role-grid article {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+}
+.preview-role-grid article > img {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+}
+.preview-role-grid b { color: #303030; font-size: 12px; }
+.preview-role-grid p { margin: 3px 0 0; color: #51483f; font-size: 10px; line-height: 1.45; }
+.special-rule,
+.status-explainer {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid rgba(91, 62, 37, 0.2);
+  border-radius: 12px;
+  background: rgba(226, 216, 197, 0.72);
+}
+.special-rule h3,
+.status-explainer h3 { margin: 0 0 5px; color: #8a282b; font-size: 13px; }
+.special-rule p,
+.status-explainer p { margin: 4px 0; color: #584c40; font-size: 10px; line-height: 1.55; }
+.in-game-board-preview { height: calc(100% - 56px); }
+.in-game-board-preview .script-preview { padding: 8px 2px 24px; }
+.in-game-board-preview .preview-title { display: none; }
+
+@media (max-width: 699px) {
+  .script-card { grid-template-columns: minmax(0, 1fr) auto; }
+  .script-card .preview-cta { min-width: 32px; }
+  .board-preview-overlay { padding: 0; place-items: stretch; }
+  .board-preview-modal { width: 100%; height: 100dvh; border: 0; border-radius: 0; }
+  .script-preview { padding: 16px 12px 28px; }
+  .preview-sheet { grid-template-columns: 1fr; }
+  .night-rail { padding: 12px; }
+  .night-rail ol { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .preview-role-grid { grid-template-columns: 1fr; }
+  .preview-role-grid article { grid-template-columns: 48px minmax(0, 1fr); }
+  .preview-role-grid article > img { width: 48px; height: 48px; }
+}
+
+/* Compact split workspace: wide phones in landscape and tablets keep one
+   tabbed notes panel permanently visible. Both columns are fluid so the notes
+   rail only takes the width it needs and the dial keeps the remaining space. */
+@media (min-width: 700px) and (max-width: 1099px) {
+  body #root .clock-app:not(.start-screen) {
+    width: 100% !important;
+    max-width: none !important;
+    height: 100dvh !important;
+    min-height: 0 !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) clamp(270px, 36vw, 390px) !important;
+    grid-template-rows: 92px minmax(0, 1fr) auto !important;
+    gap: 8px 14px !important;
+    padding: 12px 14px 10px !important;
+    overflow: hidden !important;
+  }
+  body #root .clock-app:not(.start-screen) .topbar {
+    position: static !important;
+    grid-column: 1 / -1 !important;
+    grid-row: 1 !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) clamp(270px, 36vw, 390px) !important;
+    gap: 14px !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+  body #root .clock-app:not(.start-screen) .game-board-row {
+    position: static !important;
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+    order: initial;
+    display: grid !important;
+    grid-template-columns: auto minmax(0, 1fr) !important;
+    align-items: start;
+    padding: 4px 0 0 !important;
+  }
+  body #root .clock-app:not(.start-screen) .game-board-row .utility-actions {
+    grid-column: 1;
+    display: flex !important;
+    gap: 6px;
+  }
+  body #root .clock-app:not(.start-screen) .game-meta {
+    grid-column: 2;
+    width: auto;
+    min-width: 0;
+    display: block;
+    margin: 2px 0 0 10px;
+    padding: 0;
+    overflow: hidden;
+    text-align: left;
+  }
+  body #root .clock-app:not(.start-screen) .game-meta span,
+  body #root .clock-app:not(.start-screen) .game-meta small {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  body #root .clock-app:not(.start-screen) .game-meta span::after {
+    content: none;
+  }
+  body #root .clock-app:not(.start-screen) .title-day-row {
+    position: static !important;
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+    order: initial;
+    width: auto !important;
+    min-width: 0;
+    display: flex !important;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 0 !important;
+  }
+  body #root .clock-app:not(.start-screen) .title-day-copy {
+    min-width: 54px;
+  }
+  body #root .clock-app:not(.start-screen) .product-title {
+    font-size: 8px;
+    white-space: nowrap;
+  }
+  body #root .clock-app:not(.start-screen) .title-day-row h1 {
+    margin: 4px 0 0;
+    font-size: clamp(25px, 3.2vw, 34px);
+    white-space: nowrap;
+  }
+  body #root .clock-app:not(.start-screen) .day-actions {
+    display: flex !important;
+    gap: 4px;
+    padding-top: 21px;
+  }
+  body #root .clock-app:not(.start-screen) .day-actions button {
+    width: auto;
+    min-width: 0;
+    height: 34px;
+    min-height: 34px;
+    padding: 0 7px;
+    font-size: 10px;
+    white-space: nowrap;
+  }
+  body #root .dial-section {
+    grid-column: 1 !important;
+    grid-row: 2 !important;
+    width: 100%;
+    height: 100% !important;
+    min-height: 0 !important;
+    display: grid !important;
+    place-items: center;
+    padding: 0 !important;
+    overflow: hidden !important;
+  }
+  body #root .town-dial {
+    width: min(96%, calc(100dvh - 138px)) !important;
+    height: auto !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    max-width: 600px !important;
+    max-height: 600px !important;
+    aspect-ratio: 1;
+    transform: none;
+  }
+  body #root .desktop-notes-column {
+    grid-column: 2 !important;
+    grid-row: 2 / 4 !important;
+    min-width: 0;
+    min-height: 0;
+    display: flex !important;
+    flex-direction: column;
+    padding: 14px 14px 12px !important;
+    border: 1px solid rgba(91, 62, 37, 0.15) !important;
+    border-radius: 18px;
+    background: #fff !important;
+    box-shadow: 0 6px 18px rgba(70, 43, 24, 0.06);
+    overflow: hidden;
+  }
+  body #root .desktop-notes-heading {
+    margin-bottom: 7px;
+  }
+  body #root .desktop-notes-compact {
+    height: 0;
+    min-height: 0;
+    display: block !important;
+    flex: 1 1 0;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+  }
+  body #root .desktop-notes-wide {
+    display: none !important;
+  }
+  body #root .possibilities {
+    position: static !important;
+    grid-column: 1 !important;
+    grid-row: 3 !important;
+    width: min(100%, 600px);
+    margin: 0 auto !important;
+    justify-self: center;
+    overflow: hidden;
+  }
+  body #root .possibilities .mobile-carousel {
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+  }
+  body #root .possibility-track {
+    width: max-content;
+    min-width: 100%;
+    flex-direction: row !important;
+    justify-content: center;
+    flex-wrap: nowrap;
+    padding: 0;
+  }
+  body #root .possibilities .possibility-track > button {
+    width: auto !important;
+    min-width: 112px;
+    max-width: 180px;
+    flex: 0 0 auto;
+  }
+  body #root .bottom-tools {
+    display: none !important;
+  }
+  body #root .toast {
+    grid-column: 1;
+  }
+}
+
+/* Wide desktop keeps the same fluid-column principle instead of reserving a
+   fixed 40% notes rail, which previously made the dial shrink at 1100px. */
+@media (min-width: 1100px) {
+  body #root .clock-app:not(.start-screen) {
+    grid-template-columns: minmax(0, 1fr) clamp(320px, 34vw, 520px) !important;
+    gap: 10px 18px !important;
+    padding: 24px 24px 18px !important;
+  }
+  body #root .clock-app:not(.start-screen) .topbar {
+    grid-template-columns: minmax(0, 1fr) clamp(320px, 34vw, 520px) !important;
+    gap: 18px !important;
+  }
+  body #root .desktop-notes-column {
+    padding: clamp(16px, 1.7vw, 26px) clamp(16px, 1.8vw, 28px) 18px !important;
+  }
+}
