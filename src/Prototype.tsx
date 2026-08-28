@@ -2937,6 +2937,9 @@ function BoardCard({
   const counts = (["镇民", "外来者", "爪牙", "恶魔"] as CoreTeam[]).map(
     (team) => roles.filter((role) => board.roleIds.includes(role.id) && role.team === team).length,
   );
+  const travellerCount = roles.filter(
+    (role) => board.roleIds.includes(role.id) && role.team === "旅行者",
+  ).length;
   return (
     <article className={`script-card ${selected ? "selected" : ""}`}>
       <button className="script-select" onClick={select}>
@@ -2949,6 +2952,7 @@ function BoardCard({
           </small>
           <em>
             {counts[0]} {teamText(language, "镇民")} · {counts[1]} {teamText(language, "外来者")} · {counts[2]} {teamText(language, "爪牙")} · {counts[3]} {teamText(language, "恶魔")}
+            {travellerCount ? ` · ${travellerCount} 旅行者` : ""}
           </em>
         </div>
       </button>
