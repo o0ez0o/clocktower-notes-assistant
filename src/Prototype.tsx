@@ -300,20 +300,41 @@ const roles: Role[] = [
     ].includes(id) ? abilityZh : undefined,
   })),
 ];
-const zhenHuanReferences = [
-  ["浣碧", "蓝盈莹", "huanbi-source.jpg"],
-  ["玉娆", "徐璐", "yurao-source.jpg"],
-  ["敬妃", "杨紫嫣", "jingfei-source.jpg"],
-  ["小允子", "罗康", "xiaoyunzi-source.jpg"],
-  ["槿汐姑姑", "孙茜", "jinxi-source.jpg"],
-  ["果郡王", "李东学", "guojunwang-source.png"],
-  ["三阿哥", "邬立朋", "sanage-source.jpg"],
-  ["叶澜依", "热依扎", "yelanyi-source.jpg"],
-  ["祺贵人", "唐艺昕", "qiguiren-source.jpg"],
-  ["年羹尧", "孙宁", "niangengyao-source.jpg"],
-  ["甄嬛", "孙俪", "zhenhuan-source.jpg"],
-  ["华妃", "蒋欣", "huafei-source.jpeg"],
-] as const;
+const zhenHuanReferences: Array<{ name: string; actor?: string; file?: string; note?: string }> = [
+  { name: "浣碧", actor: "蓝盈莹", file: "huanbi-source.jpg" },
+  { name: "玉娆", actor: "徐璐", file: "yurao-source.jpg" },
+  { name: "敬妃", actor: "杨紫嫣", file: "jingfei-single.jpg" },
+  { name: "小允子", actor: "罗康", file: "xiaoyunzi-source.jpg" },
+  { name: "槿汐姑姑", actor: "孙茜", file: "jinxi-single.jpg" },
+  { name: "温实初", actor: "张晓龙", note: "待补充可靠单人剧照" },
+  { name: "果郡王", actor: "李东学", file: "guojunwang-source.png" },
+  { name: "三阿哥", actor: "邬立朋", file: "sanage-source.jpg" },
+  { name: "叶澜依", actor: "热依扎", file: "yelanyi-single.jpg" },
+  { name: "敦亲王", actor: "田西平", note: "待补充可靠单人剧照" },
+  { name: "祺贵人", actor: "唐艺昕", file: "qiguiren-single.jpg" },
+  { name: "纯元皇后", note: "剧中没有可靠的正式正面剧照" },
+  { name: "年羹尧", actor: "孙宁", file: "niangengyao-source.jpg" },
+  { name: "甄嬛", actor: "孙俪", file: "zhenhuan-source.jpg" },
+  { name: "胧月", actor: "杨心仪", file: "longyue-single.jpg" },
+  { name: "齐妃", actor: "张雅萌", note: "待补充可靠单人剧照" },
+  { name: "孙答应", note: "演员与单人剧照待核对" },
+  { name: "狂徒", note: "民间板子原创身份 · 无电视剧原图" },
+  { name: "华妃", actor: "蒋欣", file: "huafei-source.jpeg" },
+  { name: "安陵容", actor: "陶昕然", file: "anlingrong-single.jpg" },
+  { name: "苏培盛", actor: "李天柱", file: "supeisheng-single.jpg" },
+  { name: "皇后", actor: "蔡少芬", file: "huanghou-single.jpg" },
+  { name: "宠妃", note: "民间板子原创身份 · 无电视剧原图" },
+  { name: "皇上", actor: "陈建斌", file: "huangshang-single.png" },
+  { name: "太后", actor: "刘雪华", file: "taihou-single.jpg" },
+  { name: "回魂太上皇", note: "民间板子原创身份 · 无电视剧原图" },
+  { name: "女皇", note: "民间板子原创身份 · 无电视剧原图" },
+  { name: "舒太妃", actor: "刘岩", note: "待补充可靠单人剧照" },
+  { name: "曹琴默", actor: "陈思斯", file: "caoqinmo-single.jpg" },
+  { name: "莫言", actor: "王丽涵", note: "待补充可靠单人剧照" },
+  { name: "沈眉庄", actor: "斓曦", file: "shenmeizhuang-single.jpg" },
+  { name: "妙音娘子", note: "民间板子原创身份 · 无电视剧原图" },
+  { name: "夏刈", actor: "孙渤洋", note: "待补充可靠单人剧照" },
+];
 const quasiAccurateRoleIds = [
   "noble", "chef", "clockmaker", "empath", "gambler", "fortuneteller",
   "chambermaid", "snakecharmer", "zhifu", "towncrier", "monk", "seamstress", "artist",
@@ -2185,10 +2206,18 @@ export default function Prototype() {
                 <button aria-label={t("关闭")} onClick={() => setRoleReferenceOpen(false)}><Cross2Icon /></button>
               </header>
               <div className="role-reference-grid">
-                {zhenHuanReferences.map(([name, actor, file]) => (
-                  <figure key={name}>
-                    <img src={assetUrl(`zhenhuan/reference-originals/${file}`)} alt="" />
-                    <figcaption><b>{name}</b><small>{actor} {t("饰")}</small></figcaption>
+                {zhenHuanReferences.map(({ name, actor, file, note }) => (
+                  <figure key={name} className={!file ? "reference-missing" : ""}>
+                    {file ? (
+                      <img src={assetUrl(`zhenhuan/reference-originals/${file}`)} alt="" />
+                    ) : (
+                      <div className="reference-placeholder"><span>{name.slice(0, 2)}</span></div>
+                    )}
+                    <figcaption>
+                      <b>{name}</b>
+                      {actor && <small>{actor} {t("饰")}</small>}
+                      {note && <em>{note}</em>}
+                    </figcaption>
                   </figure>
                 ))}
               </div>

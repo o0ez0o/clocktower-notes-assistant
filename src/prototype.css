@@ -1833,6 +1833,20 @@ button {
 .role-reference-grid figcaption { padding-top: 8px; }
 .role-reference-grid figcaption b, .role-reference-grid figcaption small { display: block; }
 .role-reference-grid figcaption small { margin-top: 2px; color: #826d59; font-size: 10px; }
+.role-reference-grid figcaption em { display: block; margin-top: 4px; color: #9a654f; font-size: 9px; font-style: normal; line-height: 1.35; }
+.reference-placeholder {
+  width: 100%;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border: 2px dashed #b9ad9b;
+  border-radius: 50%;
+  background: #f1ece3;
+  color: #8a7b69;
+  font-family: "Noto Serif SC", serif;
+  font-size: 24px;
+}
+.role-reference-grid figure.reference-missing { background: #f8f4ed; }
 .role-skill-popover article > img {
   width: 82px;
   height: 82px;
