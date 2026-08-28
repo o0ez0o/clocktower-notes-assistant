@@ -1764,6 +1764,7 @@ button {
   padding: 20px;
   background: rgba(40, 29, 20, 0.3);
   backdrop-filter: blur(2px);
+  pointer-events: none;
 }
 .role-skill-popover article {
   position: relative;
@@ -1790,6 +1791,48 @@ button {
   background: #f2eadc;
   color: #5f4734;
 }
+.role-skill-popover.mode-hover {
+  place-items: end center;
+  padding-bottom: 86px;
+  background: transparent;
+  backdrop-filter: none;
+}
+.role-skill-popover.mode-hover article { box-shadow: 0 12px 36px rgba(48, 29, 15, 0.2); }
+.role-reference-trigger {
+  width: fit-content;
+  min-height: 38px;
+  margin: 0 4px 10px;
+}
+.role-reference-trigger svg { width: 17px; height: 17px; }
+.role-reference-overlay {
+  position: absolute;
+  z-index: 40;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(43, 31, 21, .34);
+}
+.role-reference-overlay > section {
+  width: min(780px, 100%);
+  max-height: min(760px, 92%);
+  padding: 18px;
+  overflow-y: auto;
+  border: 1px solid #d8c5a4;
+  border-radius: 18px;
+  background: #fffaf0;
+  box-shadow: 0 22px 58px rgba(48, 29, 15, .24);
+}
+.role-reference-overlay header { display: flex; align-items: start; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+.role-reference-overlay h3 { margin: 0 0 3px; font-size: 18px; }
+.role-reference-overlay header p { margin: 0; color: #816a55; font-size: 12px; }
+.role-reference-overlay header button { width: 36px; height: 36px; display: grid; place-items: center; border: 0; border-radius: 50%; background: #efe4d1; }
+.role-reference-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 14px; }
+.role-reference-grid figure { margin: 0; padding: 9px; border: 1px solid #decbaa; border-radius: 14px; background: #fff; }
+.role-reference-grid figure > img { width: 100%; aspect-ratio: 1; display: block; border-radius: 50%; object-fit: cover; object-position: 50% 30%; }
+.role-reference-grid figcaption { padding-top: 8px; }
+.role-reference-grid figcaption b, .role-reference-grid figcaption small { display: block; }
+.role-reference-grid figcaption small { margin-top: 2px; color: #826d59; font-size: 10px; }
 .role-skill-popover article > img {
   width: 82px;
   height: 82px;

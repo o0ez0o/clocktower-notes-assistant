@@ -205,6 +205,10 @@ const en: Record<string, string> = {
   长按添加笔记: "Hold to add a note",
   "轻点头像可随时修改 · 长按角色头像查看技能描述":
     "Tap an avatar to change the role · Hold a role avatar to view its ability",
+  查看原剧头像核对: "Review TV character references",
+  原剧头像核对: "TV character references",
+  确认人物与造型后再生成正式头像: "Confirm each character and look before generating final avatars",
+  饰: "as",
   选择玩家状态标记: "Choose a player status marker",
 };
 

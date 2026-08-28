@@ -300,6 +300,20 @@ const roles: Role[] = [
     ].includes(id) ? abilityZh : undefined,
   })),
 ];
+const zhenHuanReferences = [
+  ["浣碧", "蓝盈莹", "huanbi-source.jpg"],
+  ["玉娆", "徐璐", "yurao-source.jpg"],
+  ["敬妃", "杨紫嫣", "jingfei-source.jpg"],
+  ["小允子", "罗康", "xiaoyunzi-source.jpg"],
+  ["槿汐姑姑", "孙茜", "jinxi-source.jpg"],
+  ["果郡王", "李东学", "guojunwang-source.png"],
+  ["三阿哥", "邬立朋", "sanage-source.jpg"],
+  ["叶澜依", "热依扎", "yelanyi-source.jpg"],
+  ["祺贵人", "唐艺昕", "qiguiren-source.jpg"],
+  ["年羹尧", "孙宁", "niangengyao-source.jpg"],
+  ["甄嬛", "孙俪", "zhenhuan-source.jpg"],
+  ["华妃", "蒋欣", "huafei-source.jpeg"],
+] as const;
 const quasiAccurateRoleIds = [
   "noble", "chef", "clockmaker", "empath", "gambler", "fortuneteller",
   "chambermaid", "snakecharmer", "zhifu", "towncrier", "monk", "seamstress", "artist",
@@ -513,6 +527,8 @@ export default function Prototype() {
     [rolePlayer, setRolePlayer] = useState<number | null>(null),
     [roleStatusOpen, setRoleStatusOpen] = useState(false),
     [roleSkill, setRoleSkill] = useState<Role | null>(null),
+    [roleSkillMode, setRoleSkillMode] = useState<"hold" | "hover" | null>(null),
+    [roleReferenceOpen, setRoleReferenceOpen] = useState(false),
     [board, setBoard] = useState(false),
     [notes, setNotes] = useState(false),
     [notePlayer, setNotePlayer] = useState<number | null>(null),
@@ -529,7 +545,6 @@ export default function Prototype() {
     [poss, setPoss] = useState([1]),
     [possibility, setPossibility] = useState(1),
     [toast, setToast] = useState("游戏已开始");
-  const roleSkillTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const suppressRoleClick = useRef<string | null>(null);
   const [deaths, setDeaths] = useState<DeathEvent[]>([]),
     [peacefulDays, setPeacefulDays] = useState<number[]>([]);
@@ -618,6 +633,19 @@ export default function Prototype() {
       delete document.documentElement.dataset.desktopModal;
     };
   }, [board, settingsOpen, manualOpen, rolePlayer, notePlayer, relationDraft, deathDecisionPlayer, notes]);
+  useEffect(() => {
+    if (roleSkillMode !== "hold") return;
+    const closeHeldSkill = () => {
+      setRoleSkill(null);
+      setRoleSkillMode(null);
+    };
+    window.addEventListener("pointerup", closeHeldSkill, true);
+    window.addEventListener("pointercancel", closeHeldSkill, true);
+    return () => {
+      window.removeEventListener("pointerup", closeHeldSkill, true);
+      window.removeEventListener("pointercancel", closeHeldSkill, true);
+    };
+  }, [roleSkillMode]);
   useEffect(() => {
     const reset = () => {
       (document.activeElement as HTMLElement | null)?.blur();
@@ -2021,6 +2049,8 @@ export default function Prototype() {
             setRolePlayer(null);
             setRoleStatusOpen(false);
             setRoleSkill(null);
+            setRoleSkillMode(null);
+            setRoleReferenceOpen(false);
           }
         }}
         title={`${language === "zh" ? "为玩家" : "Player"} ${rolePlayer || ""} · ${t("选择角色")}`}
@@ -2034,10 +2064,18 @@ export default function Prototype() {
             setRolePlayer(null);
             setRoleStatusOpen(false);
             setRoleSkill(null);
+            setRoleSkillMode(null);
+            setRoleReferenceOpen(false);
           }}
         >
           <Cross2Icon />
         </button>
+        {currentBoard?.id === "zhenhuan-v420" && (
+          <button className="role-reference-trigger ui-button ui-button--secondary" onClick={() => setRoleReferenceOpen(true)}>
+            <EyeOpenIcon />
+            {t("查看原剧头像核对")}
+          </button>
+        )}
         <div className="role-picker-content" data-scroll-drag="ignore">
           <section className="role-picker-group clear-role-group">
             <div className="role-avatar-grid">
@@ -2085,24 +2123,20 @@ export default function Prototype() {
                         title={language === "zh" ? r.zh : `${r.zh} (${r.en})`}
                         className={`role-avatar-option ${assigned ? "assigned" : ""} ${current ? "current" : ""}`}
                         onPointerDown={(event) => {
-                          if (event.pointerType === "mouse" && event.button !== 0) return;
-                          if (roleSkillTimer.current) clearTimeout(roleSkillTimer.current);
-                          roleSkillTimer.current = setTimeout(() => {
-                            suppressRoleClick.current = r.id;
-                            setRoleSkill(r);
-                          }, 520);
+                          if (event.pointerType === "mouse") return;
+                          suppressRoleClick.current = r.id;
+                          setRoleSkill(r);
+                          setRoleSkillMode("hold");
                         }}
-                        onPointerUp={() => {
-                          if (roleSkillTimer.current) clearTimeout(roleSkillTimer.current);
-                          roleSkillTimer.current = null;
+                        onPointerEnter={(event) => {
+                          if (event.pointerType !== "mouse") return;
+                          setRoleSkill(r);
+                          setRoleSkillMode("hover");
                         }}
-                        onPointerCancel={() => {
-                          if (roleSkillTimer.current) clearTimeout(roleSkillTimer.current);
-                          roleSkillTimer.current = null;
-                        }}
-                        onPointerLeave={() => {
-                          if (roleSkillTimer.current) clearTimeout(roleSkillTimer.current);
-                          roleSkillTimer.current = null;
+                        onPointerLeave={(event) => {
+                          if (event.pointerType !== "mouse") return;
+                          setRoleSkill((shown) => shown?.id === r.id ? null : shown);
+                          setRoleSkillMode((mode) => mode === "hover" ? null : mode);
                         }}
                         onContextMenu={(event) => event.preventDefault()}
                         onClick={() => {
@@ -2129,9 +2163,9 @@ export default function Prototype() {
           ))}
         </div>
         {roleSkill && (
-          <div className="role-skill-popover" role="dialog" aria-modal="true" onClick={() => setRoleSkill(null)}>
-            <article onClick={(event) => event.stopPropagation()}>
-              <button aria-label={t("关闭")} onClick={() => setRoleSkill(null)}>
+          <div className={`role-skill-popover mode-${roleSkillMode || "hold"}`} role="status">
+            <article>
+              <button aria-label={t("关闭")} onClick={() => { setRoleSkill(null); setRoleSkillMode(null); }}>
                 <Cross2Icon />
               </button>
               <img src={roleSkill.image} alt="" />
@@ -2141,6 +2175,24 @@ export default function Prototype() {
                 <p>{roleSkill.abilityZh}</p>
               </div>
             </article>
+          </div>
+        )}
+        {roleReferenceOpen && (
+          <div className="role-reference-overlay" role="dialog" aria-modal="true">
+            <section>
+              <header>
+                <div><h3>{t("原剧头像核对")}</h3><p>{t("确认人物与造型后再生成正式头像")}</p></div>
+                <button aria-label={t("关闭")} onClick={() => setRoleReferenceOpen(false)}><Cross2Icon /></button>
+              </header>
+              <div className="role-reference-grid">
+                {zhenHuanReferences.map(([name, actor, file]) => (
+                  <figure key={name}>
+                    <img src={assetUrl(`zhenhuan/reference-originals/${file}`)} alt="" />
+                    <figcaption><b>{name}</b><small>{actor} {t("饰")}</small></figcaption>
+                  </figure>
+                ))}
+              </div>
+            </section>
           </div>
         )}
         <div className="role-picker-footer">
