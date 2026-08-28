@@ -203,6 +203,8 @@ const en: Record<string, string> = {
   轻点选角色: "Tap to choose role",
   长按加标记: "Hold to add a mark",
   长按添加笔记: "Hold to add a note",
+  "轻点头像可随时修改 · 长按角色头像查看技能描述":
+    "Tap an avatar to change the role · Hold a role avatar to view its ability",
   选择玩家状态标记: "Choose a player status marker",
 };
 

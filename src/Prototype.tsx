@@ -512,6 +512,7 @@ export default function Prototype() {
     [quick, setQuick] = useState<number | null>(null),
     [rolePlayer, setRolePlayer] = useState<number | null>(null),
     [roleStatusOpen, setRoleStatusOpen] = useState(false),
+    [roleSkill, setRoleSkill] = useState<Role | null>(null),
     [board, setBoard] = useState(false),
     [notes, setNotes] = useState(false),
     [notePlayer, setNotePlayer] = useState<number | null>(null),
@@ -528,6 +529,8 @@ export default function Prototype() {
     [poss, setPoss] = useState([1]),
     [possibility, setPossibility] = useState(1),
     [toast, setToast] = useState("游戏已开始");
+  const roleSkillTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const suppressRoleClick = useRef<string | null>(null);
   const [deaths, setDeaths] = useState<DeathEvent[]>([]),
     [peacefulDays, setPeacefulDays] = useState<number[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false),
@@ -2017,10 +2020,11 @@ export default function Prototype() {
           if (!o) {
             setRolePlayer(null);
             setRoleStatusOpen(false);
+            setRoleSkill(null);
           }
         }}
         title={`${language === "zh" ? "为玩家" : "Player"} ${rolePlayer || ""} · ${t("选择角色")}`}
-        description={t("轻点头像可随时修改")}
+        description={t("轻点头像可随时修改 · 长按角色头像查看技能描述")}
         snap={0.88}
       >
         <button
@@ -2029,6 +2033,7 @@ export default function Prototype() {
           onClick={() => {
             setRolePlayer(null);
             setRoleStatusOpen(false);
+            setRoleSkill(null);
           }}
         >
           <Cross2Icon />
@@ -2079,7 +2084,32 @@ export default function Prototype() {
                         aria-label={language === "zh" ? r.zh : `${r.zh} (${r.en})`}
                         title={language === "zh" ? r.zh : `${r.zh} (${r.en})`}
                         className={`role-avatar-option ${assigned ? "assigned" : ""} ${current ? "current" : ""}`}
+                        onPointerDown={(event) => {
+                          if (event.pointerType === "mouse" && event.button !== 0) return;
+                          if (roleSkillTimer.current) clearTimeout(roleSkillTimer.current);
+                          roleSkillTimer.current = setTimeout(() => {
+                            suppressRoleClick.current = r.id;
+                            setRoleSkill(r);
+                          }, 520);
+                        }}
+                        onPointerUp={() => {
+                          if (roleSkillTimer.current) clearTimeout(roleSkillTimer.current);
+                          roleSkillTimer.current = null;
+                        }}
+                        onPointerCancel={() => {
+                          if (roleSkillTimer.current) clearTimeout(roleSkillTimer.current);
+                          roleSkillTimer.current = null;
+                        }}
+                        onPointerLeave={() => {
+                          if (roleSkillTimer.current) clearTimeout(roleSkillTimer.current);
+                          roleSkillTimer.current = null;
+                        }}
+                        onContextMenu={(event) => event.preventDefault()}
                         onClick={() => {
+                          if (suppressRoleClick.current === r.id) {
+                            suppressRoleClick.current = null;
+                            return;
+                          }
                           setPlayers((ps) =>
                             ps.map((p) => (p.id === rolePlayer ? { ...p, role: r } : p)),
                           );
@@ -2098,6 +2128,21 @@ export default function Prototype() {
             </section>
           ))}
         </div>
+        {roleSkill && (
+          <div className="role-skill-popover" role="dialog" aria-modal="true" onClick={() => setRoleSkill(null)}>
+            <article onClick={(event) => event.stopPropagation()}>
+              <button aria-label={t("关闭")} onClick={() => setRoleSkill(null)}>
+                <Cross2Icon />
+              </button>
+              <img src={roleSkill.image} alt="" />
+              <div>
+                <small>{teamText(language, roleSkill.team)}</small>
+                <h3>{language === "zh" ? roleSkill.zh : `${roleSkill.zh} (${roleSkill.en})`}</h3>
+                <p>{roleSkill.abilityZh}</p>
+              </div>
+            </article>
+          </div>
+        )}
         <div className="role-picker-footer">
           {roleStatusOpen && rolePlayer !== null && (
             <div className="role-status-menu">

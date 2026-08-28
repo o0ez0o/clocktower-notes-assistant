@@ -1755,6 +1755,50 @@ button {
   background: #f0d7b9;
   box-shadow: 0 0 0 3px rgba(189, 122, 54, 0.2);
 }
+.role-skill-popover {
+  position: absolute;
+  z-index: 30;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(40, 29, 20, 0.3);
+  backdrop-filter: blur(2px);
+}
+.role-skill-popover article {
+  position: relative;
+  width: min(420px, 100%);
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr);
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid #d8c5a4;
+  border-radius: 16px;
+  background: #fffdf8;
+  box-shadow: 0 18px 48px rgba(48, 29, 15, 0.22);
+}
+.role-skill-popover article > button {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: #f2eadc;
+  color: #5f4734;
+}
+.role-skill-popover article > img {
+  width: 82px;
+  height: 82px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.role-skill-popover small { color: #8b6c50; font-size: 11px; }
+.role-skill-popover h3 { margin: 3px 36px 8px 0; font-size: 18px; }
+.role-skill-popover p { margin: 0; color: #4f4034; font-size: 13px; line-height: 1.65; }
 .role-picker-footer {
   position: sticky;
   z-index: 8;
