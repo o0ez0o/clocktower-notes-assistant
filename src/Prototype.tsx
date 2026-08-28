@@ -51,14 +51,16 @@ type Mark =
   | "deadSpent"
   | "madness"
   | "question";
-type Team = "镇民" | "外来者" | "爪牙" | "恶魔";
+type CoreTeam = "镇民" | "外来者" | "爪牙" | "恶魔";
+type Team = CoreTeam | "旅行者";
 type Role = {
   id: string;
   zh: string;
   en: string;
   team: Team;
-  edition: "tb" | "bmr" | "snv" | "carousel" | "sy";
+  edition: "tb" | "bmr" | "snv" | "carousel" | "sy" | "zhenhuan";
   image: string;
+  gender?: "男" | "女" | "未标注";
   abilityZh?: string;
   firstNightReminderZh?: string;
   otherNightReminderZh?: string;
@@ -94,7 +96,7 @@ type ScriptBoard = {
   sourceLabel?: string;
   specialRule?: string;
 };
-type Composition = { 镇民: number; 外来者: number; 爪牙: number; 恶魔: number };
+type Composition = Record<CoreTeam, number>;
 type DisplaySettings = {
   showRoleNames: boolean;
   showPlayerNames: boolean;
@@ -102,6 +104,20 @@ type DisplaySettings = {
   markSize: "small" | "medium" | "large";
 };
 const assetUrl = (path: string) => `${import.meta.env.BASE_URL}assets/${path}`;
+const fanRoleIcon = (name: string, team: Team) => {
+  const palette: Record<Team, [string, string]> = {
+    镇民: ["#d8eef2", "#17647b"],
+    外来者: ["#dcebf5", "#336b8c"],
+    爪牙: ["#f1d8d7", "#8a2c32"],
+    恶魔: ["#ecd0cc", "#761c22"],
+    旅行者: ["#eee2c7", "#765532"],
+  };
+  const [background, foreground] = palette[team];
+  const label = name.slice(0, 2);
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><circle cx="48" cy="48" r="45" fill="${background}" stroke="${foreground}" stroke-width="4"/><path d="M25 70c5-18 15-27 23-27s18 9 23 27" fill="none" stroke="${foreground}" stroke-width="5" opacity=".28"/><circle cx="48" cy="31" r="13" fill="none" stroke="${foreground}" stroke-width="5" opacity=".28"/><text x="48" y="57" text-anchor="middle" font-family="serif" font-weight="700" font-size="23" fill="${foreground}">${label}</text></svg>`,
+  )}`;
+};
 const defaultPortrait = (id: number) =>
   assetUrl(`clocktower/default-portrait-${((id - 1) % 4) + 1}.png`);
 const tb = [
@@ -228,6 +244,61 @@ const roles: Role[] = [
     id: "marionette", zh: "提线木偶", en: "Marionette", team: "爪牙", edition: "carousel",
     image: "https://release.botc.app/resources/characters/carousel/marionette_e.webp",
   },
+  ...([
+    ["zhenhuan-huanbi", "浣碧", "Huanbi", "镇民", "女", "在你的首个夜晚，你会得知恶魔与爪牙之间最近的距离。（邻座玩家距离为1）当你坐在果郡王旁边时，你醉酒。"],
+    ["zhenhuan-yurao", "玉娆", "Yurao", "镇民", "女", "在你的首个夜晚，你会得知一名善良玩家和他的角色。如果恶魔杀死了他，你也会死亡。"],
+    ["zhenhuan-jingfei", "敬妃", "Consort Jing", "镇民", "女", "在你的首个夜晚，你会得知有多少名非男性角色在场。如果恶魔杀死了你，你会在当晚被唤醒并得知场上有多少名存活的邪恶玩家。"],
+    ["zhenhuan-xiaoyunzi", "小允子", "Xiao Yunzi", "镇民", "男", "每个夜晚，你会得知与你邻近的两名存活玩家是否为同一阵营。"],
+    ["zhenhuan-jinxi", "槿汐姑姑", "Jinxi", "镇民", "女", "每个夜晚*，你要选择两名玩家：你会得知他们之中是否有恶魔。"],
+    ["zhenhuan-wenshichu", "温实初", "Wen Shichu", "镇民", "男", "每个夜晚，你可以选择一名玩家：你会得知他是否醉酒或中毒。如果你得知是，你可以让他恢复清醒健康。"],
+    ["zhenhuan-guojunwang", "果郡王", "Prince Guo", "镇民", "男", "每个夜晚*，你要选择一名玩家（与上个夜晚不同）：当晚恶魔的负面能力对他无效。"],
+    ["zhenhuan-sanage", "三阿哥", "Third Prince", "镇民", "男", "每个夜晚*，你可以染指一名与你临近的存活玩家。不同角色会令染指成功、失败或导致死亡；你可能会得知染指是否成功。"],
+    ["zhenhuan-yelanayi", "叶澜依", "Ye Lanyi", "镇民", "女", "每局游戏限一次，在夜晚时，你可以选择一名死亡的玩家：你会将他起死回生（复活）。"],
+    ["zhenhuan-dunqinwang", "敦亲王", "Prince Dun", "镇民", "男", "每个白天，你可以公开猜测一名玩家的角色并宣称结果；如果你猜对，他醉酒至下一天黎明。"],
+    ["zhenhuan-qiguiren", "祺贵人", "Lady Qi", "镇民", "女", "每个白天，你可以公开猜测一名玩家的角色。如果猜对，当晚会有一名玩家死亡；如果猜错，当晚你死亡。"],
+    ["zhenhuan-chunyuan", "纯元皇后", "Empress Chunyuan", "镇民", "女", "当你首次被提名时，如果提名你的玩家是镇民，他立刻被处决。"],
+    ["zhenhuan-niangengyao", "年羹尧", "Nian Gengyao", "镇民", "男", "当你死亡时，你可以选择一名玩家：在当晚他会死亡。"],
+    ["zhenhuan-zhenhuan", "甄嬛", "Zhen Huan", "外来者", "女", "当你将要在夜晚被恶魔杀死时，你不会死亡，该名恶魔死亡，然后你变成邪恶的女皇。"],
+    ["zhenhuan-longyue", "胧月", "Princess Longyue", "外来者", "女", "如果你死于处决，你的阵营落败。"],
+    ["zhenhuan-qifei", "齐妃", "Consort Qi", "外来者", "女", "每个白天限一次，你可以公开选择一名与上个白天不同的玩家；他在这个白天不可以说话。如果他说话了，他可能会被处决。"],
+    ["zhenhuan-sundaying", "孙答应", "Attendant Sun", "外来者", "女", "当狂徒死亡时，当晚你也会死亡。当你死亡时，所有镇民醉酒至下个黄昏。"],
+    ["zhenhuan-kuangtu", "狂徒", "Madman", "外来者", "未标注", "你随时可能死亡。如果你“疯狂”地证明你是狂徒，你可能会被处决。"],
+    ["zhenhuan-huafei", "华妃", "Consort Hua", "爪牙", "女", "每个夜晚，你要选择一名玩家赐一丈红：如果他明天白天发起提名，他死亡。如果只有三名存活玩家，你失去此能力。"],
+    ["zhenhuan-anlingrong", "安陵容", "An Lingrong", "爪牙", "女", "在你的首个夜晚，你会得知一个在场的女性角色。每个夜晚，你可以选择一个女性角色：她会中毒直到下个黄昏。"],
+    ["zhenhuan-supeisheng", "苏培盛", "Su Peisheng", "爪牙", "男", "如果槿汐姑姑在场，她会转变为邪恶阵营且你和她会互相认识。[+1外来者]"],
+    ["zhenhuan-huanghou", "皇后", "Empress", "爪牙", "女", "如果大于等于五名玩家存活（旅行者不计算在内）且恶魔死亡，你变成女皇；如果恶魔是太后，你发动能力时会变成太后。如果有其他女皇在场，你的能力失效。"],
+    ["zhenhuan-chongfei", "宠妃", "Favored Consort", "爪牙", "女", "每个夜晚，你要选择一名与上个夜晚不同的玩家：当晚他不会因自身能力被唤醒。宠妃死亡后的第三个夜晚，存活恶魔会获得炸弹宝宝或狸猫宝宝。"],
+    ["zhenhuan-huangshang", "皇上", "Emperor", "恶魔", "男", "每个夜晚*，你要选择一名玩家：他死亡。每局游戏限一次，在夜晚时，你可以选择一名女性角色侍寝：她变成邪恶的宠妃。"],
+    ["zhenhuan-taihou", "太后", "Empress Dowager", "恶魔", "女", "每个夜晚*，你要选择两名玩家：他们可能会死亡。"],
+    ["zhenhuan-huihuntsh", "回魂太上皇", "Returned Retired Emperor", "恶魔", "男", "每个夜晚*，你要选择一名玩家：他死亡。如果你以这种方式自杀，上个白天所有与说书人私聊过的玩家会变成邪恶的皇上。"],
+    ["zhenhuan-nvhuang", "女皇", "Empress Regnant", "恶魔", "女", "每个夜晚*，你要选择一名玩家：他死亡。[初始不在游戏中]"],
+    ["zhenhuan-shutaifei", "舒太妃", "Consort Dowager Shu", "旅行者", "女", "每局游戏限一次，在处决后，你可以选择一名玩家：如果他不是果郡王，你与他一同死亡。"],
+    ["zhenhuan-caoqinmo", "曹琴默", "Cao Qinmo", "旅行者", "女", "在你的首个夜晚，你要选择除你以外的一名玩家：你转变为他的阵营。每局游戏限一次，如果他死亡，在当晚你要选择除他以外的一名玩家并转变为他的阵营。"],
+    ["zhenhuan-moyan", "莫言", "Mo Yan", "旅行者", "女", "当一名女性角色因为一名男性角色的提名而即将被处决时，你可以让这次处决改为得票数第二高的玩家被处决。"],
+    ["zhenhuan-shenmeizhuang", "沈眉庄", "Shen Meizhuang", "旅行者", "女", "你会得知谁是甄嬛，你的阵营始终与她相同。你的投票算作两票。"],
+    ["zhenhuan-miaoyinniangzi", "妙音娘子", "Lady Miaoyin", "旅行者", "女", "在你的首个白天，你要选择一个镇民角色并询问一名玩家是否相信你。相信则你获得该角色能力；若该角色在场，该角色醉酒。不相信则你被流放。"],
+    ["zhenhuan-xiayi", "夏刈", "Xia Yi", "旅行者", "男", "每个夜晚*，你要选择两名玩家进行滴血认亲：他们获得亲情羁绊。父母死亡时孩子会一同死亡；孩子死亡时父母会醉酒。"],
+  ] as const).map(([id, zh, en, team, gender, abilityZh]) => ({
+    id,
+    zh,
+    en,
+    team: team as Team,
+    gender: gender as Role["gender"],
+    edition: "zhenhuan" as const,
+    image: fanRoleIcon(zh, team as Team),
+    abilityZh,
+    firstNightReminderZh: [
+      "zhenhuan-supeisheng", "zhenhuan-huanghou", "zhenhuan-caoqinmo",
+      "zhenhuan-anlingrong", "zhenhuan-huanbi", "zhenhuan-yurao", "zhenhuan-jingfei",
+      "zhenhuan-xiaoyunzi", "zhenhuan-wenshichu", "zhenhuan-guojunwang", "zhenhuan-sanage",
+    ].includes(id) ? abilityZh : undefined,
+    otherNightReminderZh: [
+      "zhenhuan-chongfei", "zhenhuan-anlingrong", "zhenhuan-huafei", "zhenhuan-huanghou",
+      "zhenhuan-huangshang", "zhenhuan-taihou", "zhenhuan-huihuntsh", "zhenhuan-nvhuang",
+      "zhenhuan-guojunwang", "zhenhuan-sanage", "zhenhuan-yelanayi", "zhenhuan-wenshichu",
+      "zhenhuan-jinxi", "zhenhuan-xiaoyunzi", "zhenhuan-niangengyao", "zhenhuan-xiayi",
+    ].includes(id) ? abilityZh : undefined,
+  })),
 ];
 const quasiAccurateRoleIds = [
   "noble", "chef", "clockmaker", "empath", "gambler", "fortuneteller",
@@ -264,6 +335,18 @@ const defaultBoards: ScriptBoard[] = [
     sourceLabel: "玩家自制板子",
   },
   {
+    id: "zhenhuan-v420",
+    name: "血染甄嬛 v4.2.0",
+    roleIds: roles
+      .filter((role) => role.edition === "zhenhuan")
+      .map((role) => role.id),
+    official: true,
+    author: "桂花小排骨",
+    sourceLabel: "玩家自制特殊板子",
+    specialRule:
+      "支持7–15人。角色具有男性／女性属性，并包含6名不计入常规阵营配比的旅行者。宠妃死亡后的第三个夜晚，存活恶魔获得一个宝宝并选择玩家携带：炸弹宝宝所在玩家死亡时会导致与其关联的玩家受到死亡影响；狸猫宝宝会改变宠妃相关死亡的处理。女皇初始不在游戏中，只能由其他角色能力产生。具体结算以原板子《宠妃的宝宝》规则为准。",
+  },
+  {
     id: "all-amnesiac",
     name: "全员失忆（官三板角色池）",
     roleIds: [...new Set([
@@ -278,6 +361,9 @@ const defaultBoards: ScriptBoard[] = [
   },
 ];
 const firstNightOrder = [
+  "zhenhuan-supeisheng", "zhenhuan-huanghou", "zhenhuan-caoqinmo",
+  "zhenhuan-anlingrong", "zhenhuan-huanbi", "zhenhuan-yurao", "zhenhuan-jingfei",
+  "zhenhuan-xiaoyunzi", "zhenhuan-wenshichu", "zhenhuan-guojunwang", "zhenhuan-sanage",
   "philosopher", "minioninfo", "demoninfo", "sailor", "marionette", "niangjiushi",
   "poisoner", "courtier", "snakecharmer", "godfather", "devilsadvocate", "eviltwin",
   "witch", "cerenovus", "pukka", "shutong", "amnesiac", "washerwoman", "librarian",
@@ -301,6 +387,10 @@ const firstNightInformationRoleIds = new Set([
   "amnesiac",
 ]);
 const otherNightOrder = [
+  "zhenhuan-chongfei", "zhenhuan-anlingrong", "zhenhuan-huafei", "zhenhuan-huanghou",
+  "zhenhuan-huangshang", "zhenhuan-taihou", "zhenhuan-huihuntsh", "zhenhuan-nvhuang",
+  "zhenhuan-guojunwang", "zhenhuan-sanage", "zhenhuan-yelanayi", "zhenhuan-wenshichu",
+  "zhenhuan-jinxi", "zhenhuan-xiaoyunzi", "zhenhuan-niangengyao", "zhenhuan-xiayi",
   "philosopher", "sailor", "niangjiushi", "poisoner", "courtier", "innkeeper", "gambler",
   "snakecharmer", "monk", "devilsadvocate", "witch", "cerenovus", "pithag", "scarletwoman",
   "lunatic", "exorcist", "imp", "zombuul", "pukka", "shabaloth", "po", "fanggu",
@@ -1976,7 +2066,7 @@ export default function Prototype() {
               </button>
             </div>
           </section>
-          {(["镇民", "外来者", "爪牙", "恶魔"] as Team[]).map((teamName) => (
+          {(["镇民", "外来者", "爪牙", "恶魔"] as CoreTeam[]).map((teamName) => (
             <section className={`role-picker-group team-${teamName}`} key={teamName}>
               <h3>{teamText(language, teamName)}</h3>
               <div className="role-avatar-grid">
@@ -2703,9 +2793,10 @@ function ScriptPreviewContent({
       );
   const firstRoles = orderedNightRoles(firstNightOrder, "first");
   const otherRoles = orderedNightRoles(otherNightOrder, "other");
-  const counts = (["镇民", "外来者", "爪牙", "恶魔"] as Team[]).map(
+  const counts = (["镇民", "外来者", "爪牙", "恶魔"] as CoreTeam[]).map(
     (team) => boardRoles.filter((role) => role.team === team).length,
   );
+  const travellerCount = boardRoles.filter((role) => role.team === "旅行者").length;
   const roleAbility = (role: Role) =>
     language === "zh"
       ? role.abilityZh || roleZh[role.id]?.ability || "能力说明载入中…"
@@ -2744,24 +2835,35 @@ function ScriptPreviewContent({
             {board.sourceLabel || (board.official ? "官方默认板子" : "我的板子")}
             {board.author ? `（作者：${board.author}）` : ""} · {board.roleIds.length} 个角色
           </p>
-          <span>{counts[0]} 镇民 · {counts[1]} 外来者 · {counts[2]} 爪牙 · {counts[3]} 恶魔</span>
+          <span>
+            {counts[0]} 镇民 · {counts[1]} 外来者 · {counts[2]} 爪牙 · {counts[3]} 恶魔
+            {travellerCount ? ` · ${travellerCount} 旅行者` : ""}
+          </span>
         </div>
       </div>
       <div className="preview-sheet">
         <NightRail kind="first" />
         <div className="preview-role-body">
-          {(["镇民", "外来者", "爪牙", "恶魔"] as Team[]).map((team) => {
+          {(["镇民", "外来者", "爪牙", "恶魔", "旅行者"] as Team[]).map((team) => {
             const teamRoles = boardRoles.filter((role) => role.team === team);
             if (!teamRoles.length) return null;
             return (
               <section className={`preview-team team-${team}`} key={team}>
-                <h3>{team === "镇民" || team === "外来者" ? "善良阵营" : "邪恶阵营"} · {team}（{teamRoles.length}）</h3>
+                <h3>
+                  {team === "旅行者"
+                    ? "旅行者"
+                    : `${team === "镇民" || team === "外来者" ? "善良阵营" : "邪恶阵营"} · ${team}`}
+                  （{teamRoles.length}）
+                </h3>
                 <div className="preview-role-grid">
                   {teamRoles.map((role) => (
                     <article key={role.id}>
                       <img src={role.image} alt="" />
                       <div>
-                        <b>{role.zh}{role.en ? `（${role.en}）` : ""}</b>
+                        <b>
+                          {role.zh}{role.en ? `（${role.en}）` : ""}
+                          {role.gender ? <small className="role-gender"> · {role.gender}</small> : null}
+                        </b>
                         <p>{roleAbility(role)}</p>
                       </div>
                     </article>
@@ -2772,7 +2874,7 @@ function ScriptPreviewContent({
           })}
           {board.specialRule && (
             <section className="special-rule">
-              <h3>特殊规则 · 全员失忆</h3>
+              <h3>特殊规则 · {board.name}</h3>
               <p>{board.specialRule}</p>
             </section>
           )}
@@ -2832,7 +2934,7 @@ function BoardCard({
   remove?: () => void;
 }) {
   const tr = (text: string) => translate(language, text);
-  const counts = (["镇民", "外来者", "爪牙", "恶魔"] as Team[]).map(
+  const counts = (["镇民", "外来者", "爪牙", "恶魔"] as CoreTeam[]).map(
     (team) => roles.filter((role) => board.roleIds.includes(role.id) && role.team === team).length,
   );
   return (
@@ -2980,7 +3082,7 @@ function StartScreen({
             </strong>
           </div>
           <div className="composition-grid">
-            {(["镇民", "外来者", "爪牙", "恶魔"] as Team[]).map((t) => (
+            {(["镇民", "外来者", "爪牙", "恶魔"] as CoreTeam[]).map((t) => (
               <div key={t}>
                 <span>{teamText(language, t)}</span>
                 <div>
@@ -3135,7 +3237,7 @@ function BoardManager({
 }) {
   const tr = (text: string) => translate(language, text);
   const counts = (script: ScriptBoard) =>
-    (["镇民", "外来者", "爪牙", "恶魔"] as Team[]).map(
+    (["镇民", "外来者", "爪牙", "恶魔"] as CoreTeam[]).map(
       (team) =>
         roles.filter(
           (role) => script.roleIds.includes(role.id) && role.team === team,
@@ -3235,7 +3337,7 @@ function BoardManager({
             />
           </div>
           <div className="sheet-tabs">
-            {(["镇民", "外来者", "爪牙", "恶魔"] as Team[]).map((t, i) => (
+            {(["镇民", "外来者", "爪牙", "恶魔"] as CoreTeam[]).map((t, i) => (
               <button
                 className={tab === t ? "active" : ""}
                 onClick={() => setTab(t)}

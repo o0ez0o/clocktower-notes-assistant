@@ -4030,6 +4030,18 @@ body,
   gap: 7px;
   min-width: 0;
 }
+.preview-team.team-旅行者 h3 {
+  color: #72502d;
+}
+.preview-team.team-旅行者 article {
+  border-color: #d9c49f;
+  background: #faf4e7;
+}
+.role-gender {
+  color: #8b7764;
+  font-size: 9px;
+  font-weight: 500;
+}
 .daily-notes-section h4,
 .daily-votes-section h4 {
   margin: 4px 0 0;
