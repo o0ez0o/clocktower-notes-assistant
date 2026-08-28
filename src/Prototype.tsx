@@ -306,7 +306,7 @@ const zhenHuanReferences: Array<{ name: string; actor?: string; file?: string; n
   { name: "敬妃", actor: "杨紫嫣", file: "jingfei-single.jpg" },
   { name: "小允子", actor: "罗康", file: "xiaoyunzi-source.jpg" },
   { name: "槿汐姑姑", actor: "孙茜", file: "jinxi-single.jpg" },
-  { name: "温实初", actor: "张晓龙", note: "待补充可靠单人剧照" },
+  { name: "温实初", actor: "张晓龙", file: "wenshichu-single.png" },
   { name: "果郡王", actor: "李东学", file: "guojunwang-source.png" },
   { name: "三阿哥", actor: "邬立朋", file: "sanage-source.jpg" },
   { name: "叶澜依", actor: "热依扎", file: "yelanyi-single.jpg" },
@@ -316,7 +316,7 @@ const zhenHuanReferences: Array<{ name: string; actor?: string; file?: string; n
   { name: "年羹尧", actor: "孙宁", file: "niangengyao-source.jpg" },
   { name: "甄嬛", actor: "孙俪", file: "zhenhuan-source.jpg" },
   { name: "胧月", actor: "杨心仪", file: "longyue-single.jpg" },
-  { name: "齐妃", actor: "张雅萌", note: "待补充可靠单人剧照" },
+  { name: "齐妃", actor: "张雅萌", file: "qifei-single.jpg" },
   { name: "孙答应", note: "演员与单人剧照待核对" },
   { name: "狂徒", note: "民间板子原创身份 · 无电视剧原图" },
   { name: "华妃", actor: "蒋欣", file: "huafei-source.jpeg" },
@@ -333,7 +333,7 @@ const zhenHuanReferences: Array<{ name: string; actor?: string; file?: string; n
   { name: "莫言", actor: "王丽涵", note: "待补充可靠单人剧照" },
   { name: "沈眉庄", actor: "斓曦", file: "shenmeizhuang-single.jpg" },
   { name: "妙音娘子", note: "民间板子原创身份 · 无电视剧原图" },
-  { name: "夏刈", actor: "孙渤洋", note: "待补充可靠单人剧照" },
+  { name: "夏刈", actor: "孙渤洋", file: "xiayi-single.jpg" },
 ];
 const quasiAccurateRoleIds = [
   "noble", "chef", "clockmaker", "empath", "gambler", "fortuneteller",
