@@ -585,6 +585,7 @@ export default function Prototype() {
     [roleStatusOpen, setRoleStatusOpen] = useState(false),
     [roleSkill, setRoleSkill] = useState<Role | null>(null),
     [roleSkillMode, setRoleSkillMode] = useState<"hold" | "hover" | null>(null),
+    [roleSkillAnchor, setRoleSkillAnchor] = useState({ left: 12, top: 84, width: 320 }),
     [roleReferenceOpen, setRoleReferenceOpen] = useState(false),
     [board, setBoard] = useState(false),
     [notes, setNotes] = useState(false),
@@ -603,6 +604,7 @@ export default function Prototype() {
     [possibility, setPossibility] = useState(1),
     [toast, setToast] = useState("游戏已开始");
   const suppressRoleClick = useRef<string | null>(null);
+  const roleTouchStart = useRef<{ id: string; at: number } | null>(null);
   const [deaths, setDeaths] = useState<DeathEvent[]>([]),
     [peacefulDays, setPeacefulDays] = useState<number[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false),
@@ -693,6 +695,10 @@ export default function Prototype() {
   useEffect(() => {
     if (roleSkillMode !== "hold") return;
     const closeHeldSkill = () => {
+      if (roleTouchStart.current && performance.now() - roleTouchStart.current.at >= 180) {
+        suppressRoleClick.current = roleTouchStart.current.id;
+      }
+      roleTouchStart.current = null;
       setRoleSkill(null);
       setRoleSkillMode(null);
     };
@@ -759,6 +765,34 @@ export default function Prototype() {
     }),
     [currentBoard?.id, currentBoard?.roleIds.join(",")],
   );
+  const showRoleSkill = (
+    role: Role,
+    trigger: HTMLElement,
+    mode: "hold" | "hover",
+  ) => {
+    const sheet = trigger.closest<HTMLElement>(".bottom-sheet");
+    if (!sheet) return;
+    const triggerRect = trigger.getBoundingClientRect();
+    const sheetRect = sheet.getBoundingClientRect();
+    const gap = 12;
+    const margin = 12;
+    const width = Math.min(360, sheetRect.width - margin * 2);
+    const estimatedHeight = 154;
+    const localLeft = triggerRect.left - sheetRect.left;
+    const localTop = triggerRect.top - sheetRect.top;
+    const rightCandidate = localLeft + triggerRect.width + gap;
+    const leftCandidate = localLeft - width - gap;
+    const left = rightCandidate + width <= sheetRect.width - margin
+      ? rightCandidate
+      : leftCandidate >= margin
+        ? leftCandidate
+        : Math.max(margin, Math.min(localLeft + triggerRect.width / 2 - width / 2, sheetRect.width - width - margin));
+    let top = localTop + triggerRect.height / 2 - estimatedHeight / 2;
+    top = Math.max(68, Math.min(top, sheetRect.height - estimatedHeight - 76));
+    setRoleSkillAnchor({ left, top, width });
+    setRoleSkill(role);
+    setRoleSkillMode(mode);
+  };
   const point = (id: number) => {
     const a = ((id - 1) / players.length) * Math.PI * 2 - Math.PI / 2;
     return { x: 150 + Math.cos(a) * 121, y: 150 + Math.sin(a) * 121 };
@@ -2181,14 +2215,12 @@ export default function Prototype() {
                         className={`role-avatar-option ${assigned ? "assigned" : ""} ${current ? "current" : ""}`}
                         onPointerDown={(event) => {
                           if (event.pointerType === "mouse") return;
-                          suppressRoleClick.current = r.id;
-                          setRoleSkill(r);
-                          setRoleSkillMode("hold");
+                          roleTouchStart.current = { id: r.id, at: performance.now() };
+                          showRoleSkill(r, event.currentTarget, "hold");
                         }}
                         onPointerEnter={(event) => {
                           if (event.pointerType !== "mouse") return;
-                          setRoleSkill(r);
-                          setRoleSkillMode("hover");
+                          showRoleSkill(r, event.currentTarget, "hover");
                         }}
                         onPointerLeave={(event) => {
                           if (event.pointerType !== "mouse") return;
@@ -2220,7 +2252,11 @@ export default function Prototype() {
           ))}
         </div>
         {roleSkill && (
-          <div className={`role-skill-popover mode-${roleSkillMode || "hold"}`} role="status">
+          <div
+            className={`role-skill-popover mode-${roleSkillMode || "hold"}`}
+            role="status"
+            style={{ left: roleSkillAnchor.left, top: roleSkillAnchor.top, width: roleSkillAnchor.width }}
+          >
             <article>
               <button aria-label={t("关闭")} onClick={() => { setRoleSkill(null); setRoleSkillMode(null); }}>
                 <Cross2Icon />

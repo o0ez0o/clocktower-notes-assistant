@@ -1758,44 +1758,26 @@ button {
 .role-skill-popover {
   position: absolute;
   z-index: 30;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: 20px;
-  background: rgba(40, 29, 20, 0.3);
-  backdrop-filter: blur(2px);
+  max-width: calc(100% - 24px);
   pointer-events: none;
 }
 .role-skill-popover article {
   position: relative;
-  width: min(420px, 100%);
+  width: 100%;
   display: grid;
-  grid-template-columns: 82px minmax(0, 1fr);
-  gap: 16px;
-  padding: 20px;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 12px;
+  padding: 14px;
   border: 1px solid #d8c5a4;
-  border-radius: 16px;
+  border-radius: 14px;
   background: #fffdf8;
-  box-shadow: 0 18px 48px rgba(48, 29, 15, 0.22);
+  box-shadow: 0 12px 36px rgba(48, 29, 15, 0.24);
 }
 .role-skill-popover article > button {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  width: 34px;
-  height: 34px;
-  display: grid;
-  place-items: center;
-  border: 0;
-  border-radius: 50%;
-  background: #f2eadc;
-  color: #5f4734;
+  display: none;
 }
 .role-skill-popover.mode-hover {
-  place-items: end center;
-  padding-bottom: 86px;
-  background: transparent;
-  backdrop-filter: none;
+  pointer-events: none;
 }
 .role-skill-popover.mode-hover article { box-shadow: 0 12px 36px rgba(48, 29, 15, 0.2); }
 .role-reference-trigger {
@@ -1848,14 +1830,41 @@ button {
 }
 .role-reference-grid figure.reference-missing { background: #f8f4ed; }
 .role-skill-popover article > img {
-  width: 82px;
-  height: 82px;
+  width: 64px;
+  height: 64px;
   border-radius: 50%;
   object-fit: cover;
+  border: 1px solid #cfb995;
+  background: #f5ecdc;
 }
-.role-skill-popover small { color: #8b6c50; font-size: 11px; }
-.role-skill-popover h3 { margin: 3px 36px 8px 0; font-size: 18px; }
-.role-skill-popover p { margin: 0; color: #4f4034; font-size: 13px; line-height: 1.65; }
+.role-skill-popover small {
+  display: inline-flex;
+  width: fit-content;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #e6eef0;
+  color: #426875;
+  font-size: 10px;
+  font-weight: 700;
+}
+.role-skill-popover h3 { margin: 3px 0 5px; font-size: 15px; }
+.role-skill-popover p { margin: 0; color: #4f4034; font-size: 12px; line-height: 1.5; }
+.role-skill-popover::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  z-index: -1;
+}
+@media (max-width: 480px) {
+  .role-skill-popover article {
+    grid-template-columns: 52px minmax(0, 1fr);
+    gap: 10px;
+    padding: 11px;
+  }
+  .role-skill-popover article > img { width: 52px; height: 52px; }
+  .role-skill-popover h3 { font-size: 14px; }
+  .role-skill-popover p { font-size: 11px; line-height: 1.45; }
+}
 .role-picker-footer {
   position: sticky;
   z-index: 8;
