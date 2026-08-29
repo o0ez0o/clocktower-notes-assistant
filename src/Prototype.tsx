@@ -118,6 +118,40 @@ const fanRoleIcon = (name: string, team: Team) => {
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><circle cx="48" cy="48" r="45" fill="${background}" stroke="${foreground}" stroke-width="4"/><path d="M25 70c5-18 15-27 23-27s18 9 23 27" fill="none" stroke="${foreground}" stroke-width="5" opacity=".28"/><circle cx="48" cy="31" r="13" fill="none" stroke="${foreground}" stroke-width="5" opacity=".28"/><text x="48" y="57" text-anchor="middle" font-family="serif" font-weight="700" font-size="23" fill="${foreground}">${label}</text></svg>`,
   )}`;
 };
+const zhenHuanAvatarFiles: Record<string, string> = {
+  "zhenhuan-huanbi": "huanbi.png", "zhenhuan-yurao": "yurao.png",
+  "zhenhuan-jingfei": "jingfei.png", "zhenhuan-xiaoyunzi": "xiaoyunzi.png",
+  "zhenhuan-jinxi": "jinxi.png", "zhenhuan-wenshichu": "wenshichu.png",
+  "zhenhuan-guojunwang": "guojunwang.png", "zhenhuan-sanage": "sanage.png",
+  "zhenhuan-yelanayi": "yelanyi.png", "zhenhuan-dunqinwang": "dunqinwang.png",
+  "zhenhuan-qiguiren": "qiguiren.png", "zhenhuan-chunyuan": "chunyuan.png",
+  "zhenhuan-niangengyao": "niangengyao.png", "zhenhuan-zhenhuan": "zhenhuan.png",
+  "zhenhuan-longyue": "longyue.png", "zhenhuan-qifei": "qifei.png",
+  "zhenhuan-sundaying": "sundaying.png", "zhenhuan-kuangtu": "kuangtu.png",
+  "zhenhuan-huafei": "huafei.png", "zhenhuan-anlingrong": "anlingrong.png",
+  "zhenhuan-supeisheng": "supeisheng.png", "zhenhuan-huanghou": "huanghou.png",
+  "zhenhuan-chongfei": "chongfei.png", "zhenhuan-huangshang": "huangshang.png",
+  "zhenhuan-taihou": "taihou.png", "zhenhuan-huihuntsh": "huihuntsh.png",
+  "zhenhuan-nvhuang": "nvhuang.png", "zhenhuan-shutaifei": "shutaifei.png",
+  "zhenhuan-caoqinmo": "caoqinmo.png", "zhenhuan-moyan": "moyan.png",
+  "zhenhuan-shenmeizhuang": "shenmeizhuang.png", "zhenhuan-miaoyinniangzi": "miaoyin.png",
+  "zhenhuan-xiayi": "xiayi.png",
+};
+const zhenHuanClassicEquivalents: Record<string, string> = {
+  "zhenhuan-huanbi": "钟表匠",
+  "zhenhuan-yurao": "祖母",
+  "zhenhuan-jinxi": "占卜师",
+  "zhenhuan-guojunwang": "僧侣",
+  "zhenhuan-yelanayi": "教授",
+  "zhenhuan-qiguiren": "造谣者",
+  "zhenhuan-chunyuan": "贞洁者",
+  "zhenhuan-niangengyao": "月之子",
+  "zhenhuan-longyue": "圣徒",
+  "zhenhuan-kuangtu": "畸形秀演员",
+  "zhenhuan-huafei": "女巫",
+  "zhenhuan-huanghou": "红唇女郎",
+  "zhenhuan-taihou": "沙巴洛斯",
+};
 const defaultPortrait = (id: number) =>
   assetUrl(`clocktower/default-portrait-${((id - 1) % 4) + 1}.png`);
 const tb = [
@@ -280,12 +314,14 @@ const roles: Role[] = [
     ["zhenhuan-xiayi", "夏刈", "Xia Yi", "旅行者", "男", "每个夜晚*，你要选择两名玩家进行滴血认亲：他们获得亲情羁绊。父母死亡时孩子会一同死亡；孩子死亡时父母会醉酒。"],
   ] as const).map(([id, zh, en, team, gender, abilityZh]) => ({
     id,
-    zh,
+    zh: zhenHuanClassicEquivalents[id] ? `${zh}（${zhenHuanClassicEquivalents[id]}）` : zh,
     en,
     team: team as Team,
     gender: gender as Role["gender"],
     edition: "zhenhuan" as const,
-    image: fanRoleIcon(zh, team as Team),
+    image: zhenHuanAvatarFiles[id]
+      ? assetUrl(`zhenhuan/avatars/${zhenHuanAvatarFiles[id]}`)
+      : fanRoleIcon(zh, team as Team),
     abilityZh,
     firstNightReminderZh: [
       "zhenhuan-supeisheng", "zhenhuan-huanghou", "zhenhuan-caoqinmo",
