@@ -161,6 +161,29 @@
   filter: grayscale(1);
 }
 
+/* Mobile sheets use the browser viewport rather than the app's scroll
+   container. This prevents Safari from leaving a half-height sheet/dimmer
+   behind after a note is saved and closed. */
+@media (max-width: 1023px) {
+  .sheet-overlay {
+    position: fixed !important;
+    z-index: 300 !important;
+    inset: 0 !important;
+  }
+  .bottom-sheet {
+    position: fixed !important;
+    z-index: 301 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: min(88dvh, calc(100dvh - env(safe-area-inset-top))) !important;
+    min-height: 260px;
+    max-height: min(88dvh, calc(100dvh - env(safe-area-inset-top))) !important;
+    border-radius: 20px 20px 0 0 !important;
+  }
+}
+
 /* Final web breakpoints. Kept last so legacy prototype rules cannot reintroduce
    fixed-width framing or the former left-side desktop notes layout. */
 html,
@@ -4920,6 +4943,13 @@ body,
 @media (max-width: 699px) {
   .relation-endpoints { grid-template-columns: 1fr; }
   .relation-voters > div { grid-template-columns: repeat(4, 1fr); }
+}
+
+@media (max-width: 1023px) {
+  .bottom-sheet {
+    /* Clear the old tablet translateX only when Motion is not animating. */
+    transform: none;
+  }
 }
 .player-node.mark-small .mark-orbit i {
   --mark-size: 22px;
