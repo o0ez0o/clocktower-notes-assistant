@@ -517,6 +517,15 @@ body,
   }
 }
 
+/* The first mobile prototype reserved a permanent 112–116px footer inside the
+   application canvas. The current controls are viewport-fixed overlays, so
+   that reservation only creates a blank strip and shrinks every in-game view. */
+@media (max-width: 699px) {
+  body #root .clock-app:not(.start-screen) {
+    padding-bottom: max(12px, env(safe-area-inset-bottom)) !important;
+  }
+}
+
 @media (min-width: 1580px) {
   .start-screen .board-setup .script-list {
     grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
