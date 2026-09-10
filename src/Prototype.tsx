@@ -1,10 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import {
   BottomSheet,
   Carousel,
   KeyboardInput,
   KeyboardTextarea,
-  MobileScroll,
 } from "./mobile";
 import {
   ArrowLeftIcon,
@@ -25,6 +24,46 @@ import "./prototype.css";
 import "./responsive.css";
 import "./design-system.css";
 import { translate, teamText, type Language } from "./i18n";
+
+function WebPage({ children }: { children: ReactNode }) {
+  return <div className="app-screen web-app-page">{children}</div>;
+}
+
+function NotesDismissArea({
+  children,
+  onDismiss,
+}: {
+  children: ReactNode;
+  onDismiss: () => void;
+}) {
+  const start = useRef<{ pointerId: number; x: number; y: number } | null>(null);
+  const isInteractive = (target: EventTarget | null) =>
+    target instanceof Element &&
+    Boolean(target.closest("button, input, textarea, select, a, [role='button'], [contenteditable='true']"));
+
+  return (
+    <div
+      className="notes-dismiss-area"
+      onPointerDown={(event) => {
+        if (isInteractive(event.target)) return;
+        start.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
+      }}
+      onPointerUp={(event) => {
+        const gesture = start.current;
+        start.current = null;
+        if (!gesture || gesture.pointerId !== event.pointerId) return;
+        const verticalDistance = event.clientY - gesture.y;
+        const horizontalDistance = Math.abs(event.clientX - gesture.x);
+        if (verticalDistance > 72 && verticalDistance > horizontalDistance) onDismiss();
+      }}
+      onPointerCancel={() => {
+        start.current = null;
+      }}
+    >
+      {children}
+    </div>
+  );
+}
 
 function LightbulbIcon() {
   return (
@@ -582,7 +621,6 @@ export default function Prototype() {
     [maxDay, setMaxDay] = useState(1),
     [quick, setQuick] = useState<number | null>(null),
     [rolePlayer, setRolePlayer] = useState<number | null>(null),
-    [roleStatusOpen, setRoleStatusOpen] = useState(false),
     [roleSkill, setRoleSkill] = useState<Role | null>(null),
     [roleSkillMode, setRoleSkillMode] = useState<"hold" | "hover" | null>(null),
     [roleSkillAnchor, setRoleSkillAnchor] = useState({ left: 12, top: 84, width: 320 }),
@@ -736,7 +774,7 @@ export default function Prototype() {
   }>({ x: 0, y: 0 });
   const noteScroll = useRef(0);
   useEffect(() => {
-    const scroll = document.querySelector<HTMLElement>(".mobile-scroll");
+    const scroll = document.querySelector<HTMLElement>(".web-app-page");
     if (!scroll) return;
     if (notePlayer === null) {
       noteScroll.current = scroll.scrollTop;
@@ -925,7 +963,6 @@ export default function Prototype() {
       setToast(`玩家 ${source} → 玩家 ${target} · 点击头像投票`);
     } else if (!moved && !hold.current.held) {
       setRolePlayer(id);
-      setRoleStatusOpen(false);
       setQuick(null);
     }
     setDragPreview(null);
@@ -1199,7 +1236,7 @@ export default function Prototype() {
     );
   return (
     <>
-      <MobileScroll className="app-screen">
+      <WebPage>
         <main className="clock-app">
           <header className="topbar">
             <div className="game-board-row">
@@ -1768,7 +1805,7 @@ export default function Prototype() {
           </div>
           <div className="toast">{localizedToast(language, toast)}</div>
         </main>
-      </MobileScroll>
+      </WebPage>
       <BottomSheet
         open={deathDecisionPlayer !== null}
         onOpenChange={(open) => !open && setDeathDecisionPlayer(null)}
@@ -2138,7 +2175,6 @@ export default function Prototype() {
         onOpenChange={(o) => {
           if (!o) {
             setRolePlayer(null);
-            setRoleStatusOpen(false);
             setRoleSkill(null);
             setRoleSkillMode(null);
             setRoleReferenceOpen(false);
@@ -2153,7 +2189,6 @@ export default function Prototype() {
           className="desktop-modal-close"
           onClick={() => {
             setRolePlayer(null);
-            setRoleStatusOpen(false);
             setRoleSkill(null);
             setRoleSkillMode(null);
             setRoleReferenceOpen(false);
@@ -2183,21 +2218,21 @@ export default function Prototype() {
               >
                 <span>{t("取消标记")}</span>
               </button>
-              <button
-                className={`role-avatar-option role-drunk-option ${
-                  players.find((player) => player.id === rolePlayer)?.marks.includes("drunk")
-                    ? "selected"
-                    : ""
-                }`}
-                aria-label={t("酒鬼")}
-                aria-pressed={Boolean(
-                  players.find((player) => player.id === rolePlayer)?.marks.includes("drunk"),
-                )}
-                title={t("酒鬼")}
-                onClick={() => rolePlayer !== null && updateMark(rolePlayer, "drunk")}
-              >
-                <img src={marks.find((status) => status.key === "drunk")?.icon} alt="" />
-              </button>
+              {marks.map((status) => {
+                const active = players.find((player) => player.id === rolePlayer)?.marks.includes(status.key);
+                return (
+                  <button
+                    key={status.key}
+                    className={`role-avatar-option role-status-option ${active ? "selected" : ""}`}
+                    aria-label={t(status.label === "死亡 · 幽灵票可用" ? "死亡" : status.label)}
+                    aria-pressed={Boolean(active)}
+                    title={t(status.label === "死亡 · 幽灵票可用" ? "死亡" : status.label)}
+                    onClick={() => rolePlayer !== null && updateMark(rolePlayer, status.key)}
+                  >
+                    <img src={status.icon} alt="" />
+                  </button>
+                );
+              })}
             </div>
           </section>
           {(["镇民", "外来者", "爪牙", "恶魔"] as CoreTeam[]).map((teamName) => (
@@ -2297,45 +2332,13 @@ export default function Prototype() {
           </div>
         )}
         <div className="role-picker-footer">
-          {roleStatusOpen && rolePlayer !== null && (
-            <div className="role-status-menu">
-              {marks.map((status) => {
-                const active = players.find((player) => player.id === rolePlayer)?.marks.includes(status.key);
-                return (
-                  <button
-                    key={status.key}
-                    className={active ? "selected" : ""}
-                    onClick={() => updateMark(rolePlayer, status.key)}
-                  >
-                    <img src={status.icon} alt="" />
-                    <span>{t(status.label === "死亡 · 幽灵票可用" ? "死亡" : status.label)}</span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
           <div className="role-picker-actions">
-            <button
-              className="role-status-trigger ui-button ui-button--secondary"
-              onClick={() => setRoleStatusOpen((open) => !open)}
-            >
-              <span className="role-status-selected-icons">
-                {rolePlayer !== null && players
-                  .find((player) => player.id === rolePlayer)
-                  ?.marks.filter((mark) => marks.some((status) => status.key === mark))
-                  .map((mark) => (
-                    <img key={mark} src={marks.find((status) => status.key === mark)?.icon} alt="" />
-                  ))}
-              </span>
-              <span>{t("添加状态")}</span>
-            </button>
             <button
               className="role-note-action ui-button ui-button--secondary"
               onClick={() => {
                 if (rolePlayer === null) return;
                 const playerId = rolePlayer;
                 setRolePlayer(null);
-                setRoleStatusOpen(false);
                 setNotePlayer(playerId);
               }}
             >
@@ -2346,7 +2349,6 @@ export default function Prototype() {
               className="role-save-close ui-button ui-button--primary"
               onClick={() => {
                 setRolePlayer(null);
-                setRoleStatusOpen(false);
               }}
             >
               {t("保存并关闭")}
@@ -2437,22 +2439,24 @@ export default function Prototype() {
         >
           <Cross2Icon />
         </button>
-        <Notes
-          language={language}
-          players={players}
-          relations={relations}
-          deaths={deaths}
-          peacefulDays={peacefulDays}
-          togglePeaceful={(d) =>
-            setPeacefulDays((ds) =>
-              ds.includes(d) ? ds.filter((x) => x !== d) : [...ds, d],
-            )
-          }
-          day={day}
-          alwaysShowDailyRoles={display.alwaysShowDailyRoles}
-          edit={editPlayerDay}
-          clear={clearPlayerDay}
-        />
+        <NotesDismissArea onDismiss={() => setNotes(false)}>
+          <Notes
+            language={language}
+            players={players}
+            relations={relations}
+            deaths={deaths}
+            peacefulDays={peacefulDays}
+            togglePeaceful={(d) =>
+              setPeacefulDays((ds) =>
+                ds.includes(d) ? ds.filter((x) => x !== d) : [...ds, d],
+              )
+            }
+            day={day}
+            alwaysShowDailyRoles={display.alwaysShowDailyRoles}
+            edit={editPlayerDay}
+            clear={clearPlayerDay}
+          />
+        </NotesDismissArea>
       </BottomSheet>
     </>
   );
@@ -3217,7 +3221,7 @@ function StartScreen({
   );
   const total = Object.values(composition).reduce((a, b) => a + b, 0);
   return (
-    <MobileScroll className="app-screen">
+    <WebPage>
       <main className="clock-app start-screen" data-setup-step={setupStep}>
         <header className="start-hero">
           <div className="start-heading-row">
@@ -3266,7 +3270,7 @@ function StartScreen({
               />
             ))}
           </div>
-          <button className="setup-next ui-button ui-button--secondary" onClick={() => setSetupStep(2)}>
+          <button className="setup-next ui-button ui-button--primary" onClick={() => setSetupStep(2)}>
             {t("下一步")}
             <ArrowRightIcon />
           </button>
@@ -3418,7 +3422,7 @@ function StartScreen({
           </div>
         </BottomSheet>
       </main>
-    </MobileScroll>
+    </WebPage>
   );
 }
 
