@@ -26,8 +26,10 @@ export type SharedRoom = {
   revision: number;
 };
 
-const url = (import.meta.env.VITE_SUPABASE_URL || "").replace(/\/$/, "");
-const key = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
+// Supabase publishable keys are intentionally safe to ship in a browser when
+// RLS is enabled. Environment values can still override these per deployment.
+const url = (import.meta.env.VITE_SUPABASE_URL || "https://zsmzirwhyevrhvtiaxxk.supabase.co").replace(/\/$/, "");
+const key = import.meta.env.VITE_SUPABASE_ANON_KEY || "sb_publishable_ltaNA7nnVozoSCOcZIjg";
 export const supabaseReady = Boolean(url && key);
 const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ123456789";
 export const ROOM_CODE_PATTERN = /^[A-NP-Z1-9]{7}$/;
