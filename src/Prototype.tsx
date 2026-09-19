@@ -111,7 +111,7 @@ type Role = {
   zh: string;
   en: string;
   team: Team;
-  edition: "tb" | "bmr" | "snv" | "carousel" | "sy" | "zhenhuan";
+  edition: "tb" | "bmr" | "snv" | "carousel" | "sy" | "zhenhuan" | "fansuji" | "zhunshen";
   image: string;
   gender?: "男" | "女" | "未标注";
   abilityZh?: string;
@@ -333,6 +333,34 @@ const roles: Role[] = [
     image: "https://release.botc.app/resources/characters/carousel/marionette_e.webp",
   },
   ...([
+    ["shugenja", "修行者", "Shugenja", "镇民"],
+    ["hatter", "帽匠", "Hatter", "外来者"],
+    ["psychopath", "精神病患者", "Psychopath", "爪牙"],
+  ] as const).map(([id, zh, en, team]) => ({
+    id, zh, en, team: team as Team, edition: "carousel" as const,
+    image: `https://release.botc.app/resources/characters/carousel/${id}_${team === "爪牙" ? "e" : "g"}.webp`,
+  })),
+  ...([
+    ["fansuji-dianxiaoer", "店小二", "Inn Attendant", "镇民", "在你的首个夜晚，你会得知两名善良玩家。他们之中会有一人醉酒，即使你已死亡。", true, false],
+    ["fansuji-langzhong", "郎中", "Physician", "镇民", "每个夜晚，你要选择一名玩家：你会得知一个与他能力相关的词语。", true, true],
+    ["fansuji-bianlianshi", "变脸师", "Face Changer", "镇民", "每个白天，如果你“疯狂”地证明自己是一个此前未证明过的善良角色，你会在当晚获得那个角色的能力，直到下个黄昏。", false, true],
+    ["fansuji-wudaozhe", "悟道者", "Awakened", "镇民", "你以为你是一个外来者，但你实际上不是。如果邪恶玩家的能力选择或影响了你，你会立即变成一个不在场的镇民角色。", false, false],
+    ["fansuji-shouhunren", "守魂人（守鸦人）", "Soul Keeper (Ravenkeeper)", "镇民", "如果你在夜晚死亡，你会被唤醒，然后你要选择一名玩家：你会得知他的角色。", false, true],
+    ["fansuji-nichen", "逆臣", "Turncoat", "外来者", "在你的首个夜晚，你要选择除你以外的一名玩家：如果他先死于处决，你转变为邪恶；如果你先死于处决，他转变为邪恶。", true, false],
+    ["fansuji-hundun", "混沌", "Chaos", "恶魔", "每个夜晚*，你要选择一名玩家：他死亡。如果你以这种方式杀死了一名与你邻近的镇民玩家，所有善良玩家会中毒直到下个黄昏。", false, true],
+    ["zhunshen-langzhong", "郎中", "Physician", "镇民", "每个夜晚，你要选择除你以外的一名玩家：你会得知一个与他能力相关的词语。", true, true],
+    ["zhunshen-bingbi", "秉笔", "Court Recorder", "镇民", "如果你在白天死亡，当晚你会得知一名善良玩家；如果你在夜晚死亡，当晚你会得知一名邪恶玩家。", false, true],
+    ["zhunshen-yingsuzhongzhizhe", "罂粟种植者", "Poppy Grower", "镇民", "爪牙和恶魔互相不认识。如果你死亡，当晚他们会互相认识。", false, true],
+    ["zhunshen-yinshi", "隐士", "Hermit", "外来者", "你拥有所有外来者能力。[-0~1外来者]", false, false],
+    ["zhunshen-gudiao", "蛊雕", "Gu Diao", "爪牙", "每个夜晚，你会得知顺时针方向的下一名存活镇民玩家的角色；他中毒且可能被当作邪恶的蛊雕，直到下个黄昏。每局游戏限一次，在夜晚时，你可以改变方向。", true, true],
+  ] as const).map(([id, zh, en, team, abilityZh, first, other]) => ({
+    id, zh, en, team: team as Team,
+    edition: (id.startsWith("fansuji-") ? "fansuji" : "zhunshen") as "fansuji" | "zhunshen",
+    image: fanRoleIcon(zh, team as Team), abilityZh,
+    firstNightReminderZh: first ? abilityZh : undefined,
+    otherNightReminderZh: other ? abilityZh : undefined,
+  })),
+  ...([
     ["zhenhuan-huanbi", "浣碧", "Huanbi", "镇民", "女", "在你的首个夜晚，你会得知恶魔与爪牙之间最近的距离。（邻座玩家距离为1）当你坐在果郡王旁边时，你醉酒。"],
     ["zhenhuan-yurao", "玉娆", "Yurao", "镇民", "女", "在你的首个夜晚，你会得知一名善良玩家和他的角色。如果恶魔杀死了他，你也会死亡。"],
     ["zhenhuan-jingfei", "敬妃", "Consort Jing", "镇民", "女", "在你的首个夜晚，你会得知有多少名非男性角色在场。如果恶魔杀死了你，你会在当晚被唤醒并得知场上有多少名存活的邪恶玩家。"],
@@ -432,6 +460,18 @@ const quasiAccurateRoleIds = [
   "niangjiushi", "assassin", "godfather", "scarletwoman", "marionette",
   "nodashii", "vortox",
 ];
+const fanSuJiRoleIds = [
+  "shugenja", "librarian", "fansuji-dianxiaoer", "empath", "fansuji-langzhong",
+  "fortuneteller", "undertaker", "monk", "savant", "fansuji-bianlianshi", "artist",
+  "fansuji-wudaozhe", "fansuji-shouhunren", "barber", "fansuji-nichen", "hatter", "drunk",
+  "cerenovus", "witch", "marionette", "scarletwoman", "imp", "fansuji-hundun", "nodashii", "vortox",
+];
+const zhunShenRoleIds = [
+  "chef", "grandmother", "empath", "zhunshen-langzhong", "chambermaid", "mathematician",
+  "fortuneteller", "oracle", "gambler", "artist", "ravenkeeper", "zhunshen-bingbi",
+  "zhunshen-yingsuzhongzhizhe", "lunatic", "zhunshen-yinshi", "drunk", "recluse", "moonchild",
+  "godfather", "zhunshen-gudiao", "psychopath", "assassin", "imp", "fanggu",
+];
 const defaultBoards: ScriptBoard[] = [
   {
     id: "tb",
@@ -458,6 +498,24 @@ const defaultBoards: ScriptBoard[] = [
     official: true,
     author: "魏准",
     sourceLabel: "玩家自制板子",
+  },
+  {
+    id: "fan-su-ji",
+    name: "凡俗集",
+    roleIds: fanSuJiRoleIds,
+    official: true,
+    author: "苏通染",
+    sourceLabel: "玩家自制板子",
+    specialRule: "支持7–15人。自制角色按原板能力文字录入；守魂人的能力与官方守鸦人相同，因此显示为“守魂人（守鸦人）”。",
+  },
+  {
+    id: "zhun-shen-chu-ji",
+    name: "准神出击？",
+    roleIds: zhunShenRoleIds,
+    official: true,
+    author: "Zhun",
+    sourceLabel: "玩家自制板子",
+    specialRule: "自制角色按原板能力文字录入。官方同名角色沿用官方能力与夜间顺序；郎中、秉笔、罂粟种植者、隐士和蛊雕使用原板能力。",
   },
   {
     id: "zhenhuan-v420",
@@ -489,11 +547,12 @@ const firstNightOrder = [
   "zhenhuan-supeisheng", "zhenhuan-huanghou", "zhenhuan-caoqinmo",
   "zhenhuan-anlingrong", "zhenhuan-huanbi", "zhenhuan-yurao", "zhenhuan-jingfei",
   "zhenhuan-xiaoyunzi", "zhenhuan-wenshichu", "zhenhuan-guojunwang", "zhenhuan-sanage",
-  "philosopher", "minioninfo", "demoninfo", "sailor", "marionette", "niangjiushi",
+  "philosopher", "minioninfo", "demoninfo", "sailor", "marionette", "niangjiushi", "hatter",
   "poisoner", "courtier", "snakecharmer", "godfather", "devilsadvocate", "eviltwin",
   "witch", "cerenovus", "pukka", "shutong", "amnesiac", "washerwoman", "librarian",
-  "investigator", "chef", "empath", "fortuneteller", "butler", "grandmother", "clockmaker",
+  "investigator", "chef", "shugenja", "fansuji-dianxiaoer", "fansuji-nichen", "empath", "fortuneteller", "butler", "grandmother", "clockmaker",
   "dreamer", "seamstress", "noble", "spy", "chambermaid", "mathematician",
+  "fansuji-langzhong", "zhunshen-langzhong", "zhunshen-gudiao",
 ];
 const firstNightInformationRoleIds = new Set([
   "washerwoman",
@@ -509,6 +568,8 @@ const firstNightInformationRoleIds = new Set([
   "noble",
   "chambermaid",
   "mathematician",
+  "shugenja",
+  "fansuji-dianxiaoer",
   "amnesiac",
 ]);
 const otherNightOrder = [
@@ -516,14 +577,15 @@ const otherNightOrder = [
   "zhenhuan-huangshang", "zhenhuan-taihou", "zhenhuan-huihuntsh", "zhenhuan-nvhuang",
   "zhenhuan-guojunwang", "zhenhuan-sanage", "zhenhuan-yelanayi", "zhenhuan-wenshichu",
   "zhenhuan-jinxi", "zhenhuan-xiaoyunzi", "zhenhuan-niangengyao", "zhenhuan-xiayi",
-  "philosopher", "sailor", "niangjiushi", "poisoner", "courtier", "innkeeper", "gambler",
+  "philosopher", "sailor", "niangjiushi", "poisoner", "courtier", "innkeeper", "gambler", "psychopath",
   "snakecharmer", "monk", "devilsadvocate", "witch", "cerenovus", "pithag", "scarletwoman",
   "lunatic", "exorcist", "imp", "zombuul", "pukka", "shabaloth", "po", "fanggu",
   "nodashii", "vortox", "vigormortis", "assassin", "godfather", "gossip", "barber",
   "sweetheart", "sage", "professor", "shutong", "tinker", "moonchild", "grandmother",
   "ravenkeeper", "empath", "fortuneteller", "undertaker", "dreamer", "flowergirl",
   "towncrier", "zhifu", "oracle", "seamstress", "juggler", "amnesiac", "butler", "spy",
-  "chambermaid", "mathematician",
+  "chambermaid", "mathematician", "fansuji-langzhong", "zhunshen-langzhong", "fansuji-bianlianshi",
+  "fansuji-shouhunren", "fansuji-hundun", "zhunshen-bingbi", "zhunshen-yingsuzhongzhizhe", "zhunshen-gudiao",
 ];
 const marks: { key: Mark; label: string; short: string; icon: string }[] = [
   {
