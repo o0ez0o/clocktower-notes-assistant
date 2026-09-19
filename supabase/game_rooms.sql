@@ -5,6 +5,7 @@ create extension if not exists pgcrypto;
 create table if not exists public.game_rooms (
   id uuid primary key default gen_random_uuid(),
   room_code char(7) not null unique check (room_code ~ '^[A-NP-Z1-9]{7}$'),
+  room_name text not null default '未命名游戏局' check (char_length(room_name) between 1 and 30),
   game_type text not null check (char_length(game_type) <= 160),
   status text not null default 'waiting' check (status in ('waiting','active','finished','abandoned')),
   game_state jsonb not null default '{"day":1,"phase":"setup","nominations":[],"deaths":[],"peacefulDays":[],"publicAnnouncements":[],"gameEvents":[]}'::jsonb,
@@ -16,6 +17,11 @@ create table if not exists public.game_rooms (
   revision integer not null default 0 check (revision >= 0)
 );
 create index if not exists game_rooms_room_code_idx on public.game_rooms(room_code);
+
+-- Safe to re-run when upgrading an existing project.
+alter table public.game_rooms add column if not exists room_name text not null default '未命名游戏局';
+alter table public.game_rooms drop constraint if exists game_rooms_room_name_check;
+alter table public.game_rooms add constraint game_rooms_room_name_check check (char_length(room_name) between 1 and 30);
 
 create table if not exists public.game_events (
   id uuid primary key default gen_random_uuid(),
@@ -48,7 +54,31 @@ create policy "anon can read one room events" on public.game_events for select t
 create policy "anon can insert constrained events" on public.game_events for insert to anon
   with check (jsonb_typeof(event_data) = 'object' and octet_length(event_data::text) < 16384 and exists (select 1 from public.game_rooms r where r.id = room_id and r.room_code = ((current_setting('request.headers', true)::jsonb ->> 'x-room-code')::char(7)) ));
 
-alter publication supabase_realtime add table public.game_rooms;
+do $$ begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'game_rooms'
+  ) then
+    alter publication supabase_realtime add table public.game_rooms;
+  end if;
+end $$;
+
+-- Deliberately exposes only the newest 100 room summaries requested by the
+-- product. Exact room reads and writes remain protected by X-Room-Code RLS.
+create or replace function public.list_shared_game_rooms()
+returns setof public.game_rooms
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select * from public.game_rooms
+  where status <> 'abandoned'
+  order by updated_at desc
+  limit 100;
+$$;
+revoke all on function public.list_shared_game_rooms() from public;
+grant execute on function public.list_shared_game_rooms() to anon;
 
 -- Recommended hardening for production: move create/update into SECURITY
 -- DEFINER RPC functions, validate allowed JSON keys and rate-limit them at an

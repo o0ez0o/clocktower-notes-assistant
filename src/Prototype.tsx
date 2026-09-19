@@ -14,10 +14,12 @@ import {
   EyeOpenIcon,
   FileTextIcon,
   GearIcon,
+  Link2Icon,
   MagnifyingGlassIcon,
   Pencil1Icon,
   Pencil2Icon,
   PlusIcon,
+  Share1Icon,
   TrashIcon,
 } from "@radix-ui/react-icons";
 import "./prototype.css";
@@ -27,7 +29,11 @@ import { translate, teamText, type Language } from "./i18n";
 import {
   createRoom,
   findRoom,
+  listRooms,
+  makeDefaultRoomName,
+  makeRoomUrl,
   normaliseRoomCode,
+  truncateChars,
   readRecentRooms,
   rememberRoom,
   ROOM_CODE_PATTERN,
@@ -761,10 +767,15 @@ export default function Prototype() {
   const [sharedRoom, setSharedRoom] = useState<SharedRoom | null>(null);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
   const [sharedRoomOpen, setSharedRoomOpen] = useState(false);
+  const [onlineCount, setOnlineCount] = useState(0);
+  const [roomNameDraft, setRoomNameDraft] = useState("");
   const [recentRooms, setRecentRooms] = useState<RecentRoom[]>(readRecentRooms);
   const sharedRoomRef = useRef<SharedRoom | null>(null);
   const ignoreRemoteRevision = useRef<number | null>(null);
   const unsubscribeSharedRoom = useRef<(() => void) | null>(null);
+  const urlJoinHandled = useRef(false);
+  const uploadingSharedRoom = useRef(false);
+  const pendingRemoteRoom = useRef<SharedRoom | null>(null);
   useEffect(
     () => localStorage.setItem("clocktower-boards", JSON.stringify(boards)),
     [boards],
@@ -897,17 +908,28 @@ export default function Prototype() {
     peacefulDays,
     publicAnnouncements: [],
     gameEvents: [],
+    boardId: selectedBoardId,
+    composition,
+    playerCount: Object.values(composition).reduce((sum, count) => sum + count, 0),
   });
   const applySharedRoom = (room: SharedRoom) => {
     if (sharedRoomRef.current?.id === room.id && room.revision <= sharedRoomRef.current.revision) return;
+    if (uploadingSharedRoom.current) { pendingRemoteRoom.current = room; return; }
     sharedRoomRef.current = room;
     ignoreRemoteRevision.current = room.revision;
     setSharedRoom(room);
     setDay(room.game_state.day || 1);
     setMaxDay((current) => Math.max(current, room.game_state.day || 1));
-    setRelations((room.game_state.nominations || []) as Relation[]);
+    setRelations((current) => [
+      ...current.filter((relation) => relation.type !== "nominate"),
+      ...((room.game_state.nominations || []) as Relation[]),
+    ]);
     setDeaths((room.game_state.deaths || []) as DeathEvent[]);
     setPeacefulDays(room.game_state.peacefulDays || []);
+    if (room.game_state.boardId && boards.some((board) => board.id === room.game_state.boardId)) setSelectedBoardId(room.game_state.boardId);
+    if (room.game_state.composition) setComposition(room.game_state.composition);
+    if (room.game_state.playerCount) setPlayers((current) => current.length === room.game_state.playerCount ? current : createPlayers(room.game_state.playerCount || 12));
+    setRoomNameDraft(room.room_name || makeDefaultRoomName(room.game_type));
     setSyncStatus("synced");
     rememberRoom(room);
     setRecentRooms(readRecentRooms());
@@ -920,21 +942,22 @@ export default function Prototype() {
       const privateState = JSON.parse(localStorage.getItem(`private_marks:${room.room_code}`) || "null") as { players?: Player[] } | null;
       if (privateState?.players?.length) setPlayers(privateState.players);
     } catch { /* a corrupt local cache must not prevent joining */ }
-    sharedRoomRef.current = room;
-    setSharedRoom(room);
-    setSyncStatus("synced");
+    sharedRoomRef.current = null;
     applySharedRoom(room);
-    unsubscribeSharedRoom.current = subscribeRoom(room, applySharedRoom);
+    setRoomNameDraft(room.room_name || makeDefaultRoomName(room.game_type));
+    unsubscribeSharedRoom.current = subscribeRoom(room, applySharedRoom, setOnlineCount);
   };
   const createSharedGame = async () => {
     try {
       setSyncStatus("syncing");
       // No event, vote, execution or death from the prior game is reused.
-      const emptyState: SharedGameState = { day: 1, phase: "setup", nominations: [], deaths: [], peacefulDays: [], publicAnnouncements: [], gameEvents: [] };
+      const emptyState: SharedGameState = { day: 1, phase: "setup", nominations: [], deaths: [], peacefulDays: [], publicAnnouncements: [], gameEvents: [], boardId: selectedBoardId, composition, playerCount: Object.values(composition).reduce((sum, count) => sum + count, 0) };
       const room = await createRoom(currentBoard?.name || "未命名板子", emptyState);
       unsubscribeSharedRoom.current?.();
       setRelations([]); setDeaths([]); setPeacefulDays([]); setDay(1); setMaxDay(1);
       bindSharedRoom(room);
+      const roomUrl = makeRoomUrl(room.room_code);
+      window.history.replaceState(null, "", roomUrl);
       setToast(`共享局 ${room.room_code} 已创建`);
       setSharedRoomOpen(false);
     } catch (error) {
@@ -942,20 +965,25 @@ export default function Prototype() {
       setToast(error instanceof Error && error.message === "SUPABASE_NOT_CONFIGURED" ? "尚未配置 Supabase，无法创建共享局" : "创建共享局失败，请稍后重试");
     }
   };
-  const joinSharedGame = async (code: string) => {
+  const joinSharedGame = async (code: string): Promise<"joined" | "invalid" | "not_found" | "unavailable" | "failed"> => {
     try {
       const normalised = normaliseRoomCode(code);
-      if (!ROOM_CODE_PATTERN.test(normalised)) { setToast("请输入 7 位有效局号（不含 0 或 O）"); return; }
+      if (!ROOM_CODE_PATTERN.test(normalised)) { setToast("请输入完整的 7 位局号"); return "invalid"; }
       setSyncStatus("syncing");
       // Bind and load first: no state from the previous room can be saved here.
       const room = await findRoom(normalised);
-      if (!room) { setSyncStatus("failed"); setToast("没有找到该游戏局"); return; }
+      if (!room) { setSyncStatus("failed"); setToast("没有找到这个局，请检查局号"); return "not_found"; }
       bindSharedRoom(room);
       setStarted(room.status !== "waiting");
+      window.history.replaceState(null, "", makeRoomUrl(room.room_code));
       setToast(`已加入共享局 ${room.room_code}`);
       setSharedRoomOpen(false);
-    } catch {
-      setSyncStatus("failed"); setToast("加入共享局失败，请检查网络后重试");
+      return "joined";
+    } catch (error) {
+      setSyncStatus("failed");
+      if (error instanceof Error && /SUPABASE_(?:NOT_CONFIGURED|401|403|5\d\d)/.test(error.message)) { setToast("云端服务暂时不可用"); return "unavailable"; }
+      setToast("加入失败，请稍后重试");
+      return "failed";
     }
   };
   const leaveSharedGame = () => {
@@ -963,9 +991,55 @@ export default function Prototype() {
     unsubscribeSharedRoom.current = null;
     sharedRoomRef.current = null;
     setSharedRoom(null);
+    setOnlineCount(0);
+    setSharedRoomOpen(false);
     setSyncStatus("idle");
+    setStarted(false);
+    const nextUrl = new URL(window.location.href);
+    nextUrl.searchParams.delete("room");
+    window.history.replaceState(null, "", nextUrl.toString());
     setToast("已退出共享局；云端记录仍会保留");
   };
+  const saveRoomName = async () => {
+    const room = sharedRoomRef.current;
+    if (!room) return;
+    const nextName = truncateChars(roomNameDraft.trim() || makeDefaultRoomName(room.game_type), 30);
+    if (nextName === room.room_name) return;
+    try {
+      setSyncStatus("syncing");
+      const updated = await updateRoom(room, { room_name: nextName });
+      if (!updated) throw new Error("REVISION_CONFLICT");
+      sharedRoomRef.current = updated; setSharedRoom(updated); setRoomNameDraft(updated.room_name);
+      rememberRoom(updated); setRecentRooms(readRecentRooms()); setSyncStatus("synced"); setToast("本局局名已保存");
+    } catch { setSyncStatus("failed"); setToast("同步失败，请重试"); }
+  };
+  const copyRoomCode = async () => {
+    if (!sharedRoom) return;
+    await navigator.clipboard?.writeText(sharedRoom.room_code);
+    setToast("局号已复制");
+  };
+  const copyInvite = async () => {
+    if (!sharedRoom) return;
+    const invitation = `${makeRoomUrl(sharedRoom.room_code)}\n\n点击加入当前血染钟楼“${sharedRoom.room_name}”，共享本局游戏记录`;
+    await navigator.clipboard?.writeText(invitation);
+    setToast("邀请文案已复制");
+  };
+  const shareInvite = async () => {
+    if (!sharedRoom) return;
+    const shareUrl = makeRoomUrl(sharedRoom.room_code);
+    await navigator.clipboard?.writeText(shareUrl);
+    if (navigator.share) {
+      try { await navigator.share({ title: sharedRoom.room_name, text: `点击加入当前血染钟楼“${sharedRoom.room_name}”，共享本局游戏记录`, url: shareUrl }); setToast("邀请链接已复制并分享"); return; }
+      catch { /* cancelled/native share unavailable: copied link remains */ }
+    }
+    setToast("邀请链接已复制");
+  };
+  useEffect(() => {
+    if (urlJoinHandled.current) return;
+    urlJoinHandled.current = true;
+    const code = normaliseRoomCode(new URL(window.location.href).searchParams.get("room") || "");
+    if (ROOM_CODE_PATTERN.test(code)) void joinSharedGame(code);
+  }, []);
   useEffect(() => () => unsubscribeSharedRoom.current?.(), []);
   useEffect(() => {
     if (!sharedRoom?.room_code) return;
@@ -979,6 +1053,7 @@ export default function Prototype() {
     }
     let cancelled = false;
     const timer = window.setTimeout(async () => {
+      uploadingSharedRoom.current = true;
       try {
         setSyncStatus("syncing");
         const updated = await updateRoom(room, { game_state: sharedState(), status: "active", started_at: room.started_at || new Date().toISOString() });
@@ -986,7 +1061,13 @@ export default function Prototype() {
         if (updated) { sharedRoomRef.current = updated; setSharedRoom(updated); rememberRoom(updated); setRecentRooms(readRecentRooms()); setSyncStatus("synced"); }
         else { const latest = await findRoom(room.room_code); if (latest) applySharedRoom(latest); }
       } catch { if (!cancelled) setSyncStatus("failed"); }
-    }, 600);
+      finally {
+        uploadingSharedRoom.current = false;
+        const pending = pendingRemoteRoom.current;
+        pendingRemoteRoom.current = null;
+        if (pending && !cancelled) applySharedRoom(pending);
+      }
+    }, 400);
     return () => { cancelled = true; window.clearTimeout(timer); };
   }, [day, relations, deaths, peacefulDays, started]);
   const showRoleSkill = (
@@ -1418,8 +1499,6 @@ export default function Prototype() {
         setSettingsOpen={setSettingsOpen}
         manualOpen={manualOpen}
         setManualOpen={setManualOpen}
-        sharedRoomOpen={sharedRoomOpen}
-        setSharedRoomOpen={setSharedRoomOpen}
         createSharedGame={createSharedGame}
         joinSharedGame={joinSharedGame}
         recentRooms={recentRooms}
@@ -1455,6 +1534,11 @@ export default function Prototype() {
                 >
                   <LightbulbIcon />
                 </button>
+                {sharedRoom && (
+                  <button className="shared-utility-button ui-button ui-button--secondary ui-button--icon" aria-label="共享游戏局" onClick={() => setSharedRoomOpen(true)}>
+                    <Link2Icon />
+                  </button>
+                )}
                 <button
                   aria-label={t("设置")}
                   className="settings-button"
@@ -1465,12 +1549,10 @@ export default function Prototype() {
               </div>
             </div>
             {sharedRoom && (
-              <div className="shared-room-strip" aria-live="polite">
+              <button className="shared-room-strip" aria-live="polite" onClick={() => setSharedRoomOpen(true)}>
                 <span>共享局</span><b>{sharedRoom.room_code}</b>
-                <span>{syncStatus === "syncing" ? "正在同步" : syncStatus === "failed" ? "同步失败" : "已同步"}</span>
-                <button onClick={() => navigator.clipboard?.writeText(sharedRoom.room_code).then(() => setToast("局号已复制"))}>复制局号</button>
-                <button onClick={leaveSharedGame}>退出共享局</button>
-              </div>
+                <span>{syncStatus === "syncing" ? "正在同步…" : syncStatus === "failed" ? "同步失败，请重试" : "已同步"}</span>
+              </button>
             )}
             <div className="title-day-row">
               <div className="title-day-copy">
@@ -2626,6 +2708,39 @@ export default function Prototype() {
         )}
       </BottomSheet>
       <BottomSheet
+        open={sharedRoomOpen && Boolean(sharedRoom)}
+        onOpenChange={setSharedRoomOpen}
+        title="共享游戏局"
+        description={sharedRoom ? `${sharedRoom.room_code} · ${sharedRoom.game_type}` : undefined}
+        snap={0.78}
+      >
+        {sharedRoom && (
+          <div className="shared-detail-sheet">
+            <div className="shared-detail-scroll" data-scroll-drag="ignore">
+              <section className={`sync-state sync-state--${syncStatus}`}>
+                <span>同步状态</span>
+                <b>{syncStatus === "syncing" ? "正在同步…" : syncStatus === "failed" ? "同步失败，请重试" : "已同步"}</b>
+              </section>
+              <section className="room-name-editor">
+                <label htmlFor="shared-room-name">本局局名</label>
+                <div>
+                  <input id="shared-room-name" value={roomNameDraft} onChange={(event) => setRoomNameDraft(truncateChars(event.target.value, 30))} onKeyDown={(event) => { if (event.key === "Enter") void saveRoomName(); }} />
+                  <span>{[...roomNameDraft].length}/30</span>
+                </div>
+                <button className="ui-button ui-button--secondary" disabled={(roomNameDraft.trim() || makeDefaultRoomName(sharedRoom.game_type)) === sharedRoom.room_name} onClick={() => void saveRoomName()}>保存</button>
+              </section>
+              <section className="share-room-actions">
+                <h3>分享此局</h3>
+                <div className="share-code-row"><b>{sharedRoom.room_code}</b><button onClick={() => void copyRoomCode()}>复制</button><button aria-label="复制邀请文案" onClick={() => void copyInvite()}><Link2Icon /></button><button onClick={() => void shareInvite()}><Share1Icon />分享</button></div>
+              </section>
+              <section className="presence-row"><span>当前连接人数</span><b>正在连接 {onlineCount || 1} 人</b></section>
+              <section className="room-times"><div><span>开始于</span><b>{new Date(sharedRoom.started_at || sharedRoom.created_at).toLocaleString("zh-CN")}</b></div><div><span>最后更新</span><b>{new Date(sharedRoom.updated_at).toLocaleString("zh-CN")}</b></div></section>
+            </div>
+            <footer className="shared-detail-actions"><button className="ui-button ui-button--secondary" onClick={leaveSharedGame}>退出共享局</button><button className="ui-button ui-button--primary" onClick={() => setSharedRoomOpen(false)}>返回记录</button></footer>
+          </div>
+        )}
+      </BottomSheet>
+      <BottomSheet
         open={notes}
         onOpenChange={setNotes}
         title={t("总体笔记")}
@@ -3376,6 +3491,23 @@ function BoardCard({
   );
 }
 
+function CloudRoomCard({ room, participated, join }: { room: SharedRoom; participated: boolean; join: () => void }) {
+  const dead = new Set<number>();
+  for (const event of room.game_state.deaths as DeathEvent[]) {
+    if (event.reason === "revival") dead.delete(event.playerId); else dead.add(event.playerId);
+  }
+  const total = room.game_state.playerCount || 0;
+  const winner = room.result?.winner === "good" ? "善良方胜利" : room.result?.winner === "evil" ? "邪恶方胜利" : "游戏结束";
+  const status = room.status === "finished" ? `已结束 · ${winner}` : `进行到第 ${room.game_state.day || 1} 天${total ? ` · 存活 ${Math.max(0, total - dead.size)}/${total} 人` : ""}`;
+  return (
+    <button className="cloud-room-card" onClick={join}>
+      <span className="cloud-room-card__top"><strong title={room.room_name}>{room.room_name || makeDefaultRoomName(room.game_type)}</strong>{participated && <em>本机参与</em>}</span>
+      <span className="cloud-room-card__meta"><b>{room.room_code}</b><span>{room.game_type} · {new Date(room.started_at || room.created_at).toLocaleString("zh-CN")}</span></span>
+      <span className="cloud-room-card__status">{status}</span>
+    </button>
+  );
+}
+
 function StartScreen({
   language,
   setLanguage,
@@ -3392,8 +3524,6 @@ function StartScreen({
   setSettingsOpen,
   manualOpen,
   setManualOpen,
-  sharedRoomOpen,
-  setSharedRoomOpen,
   createSharedGame,
   joinSharedGame,
   recentRooms,
@@ -3414,10 +3544,8 @@ function StartScreen({
   setSettingsOpen: (v: boolean) => void;
   manualOpen: boolean;
   setManualOpen: (v: boolean) => void;
-  sharedRoomOpen: boolean;
-  setSharedRoomOpen: (v: boolean) => void;
   createSharedGame: () => void;
-  joinSharedGame: (code: string) => void;
+  joinSharedGame: (code: string) => Promise<"joined" | "invalid" | "not_found" | "unavailable" | "failed">;
   recentRooms: RecentRoom[];
   sharedAvailable: boolean;
 }) {
@@ -3426,6 +3554,28 @@ function StartScreen({
   const [setupStep, setSetupStep] = useState<1 | 2>(1);
   const [boardQuery, setBoardQuery] = useState("");
   const [roomCode, setRoomCode] = useState("");
+  const [startTab, setStartTab] = useState<"join" | "new">("join");
+  const [cloudRooms, setCloudRooms] = useState<SharedRoom[]>([]);
+  const [cloudLoading, setCloudLoading] = useState(true);
+  const [cloudError, setCloudError] = useState(false);
+  const [joinError, setJoinError] = useState("");
+  useEffect(() => {
+    if (startTab !== "join" || !sharedAvailable) return;
+    let active = true;
+    setCloudLoading(true); setCloudError(false);
+    listRooms().then((items) => { if (active) setCloudRooms(items); }).catch(() => { if (active) setCloudError(true); }).finally(() => { if (active) setCloudLoading(false); });
+    return () => { active = false; };
+  }, [startTab, sharedAvailable]);
+  const recentCodes = new Set(recentRooms.map((room) => room.roomCode));
+  const orderedCloudRooms = [...cloudRooms].sort((a, b) => Number(recentCodes.has(b.room_code)) - Number(recentCodes.has(a.room_code)) || Date.parse(b.updated_at) - Date.parse(a.updated_at));
+  const tryJoin = async (code: string) => {
+    setJoinError("");
+    const outcome = await joinSharedGame(code);
+    if (outcome === "invalid") setJoinError("请输入完整的 7 位局号");
+    if (outcome === "not_found") setJoinError("没有找到这个局，请检查局号");
+    if (outcome === "failed") setJoinError("加入失败，请稍后重试");
+    if (outcome === "unavailable") setJoinError("云端服务暂时不可用");
+  };
   const selected = boards.find((b) => b.id === selectedId) || boards[0];
   const visibleBoards = boards.filter((board) =>
     `${board.name} ${board.sourceLabel || ""} ${board.author || ""}`
@@ -3453,12 +3603,28 @@ function StartScreen({
             </div>
           </div>
         </header>
-        <section className="shared-game-entry" aria-label="共享游戏局">
-          <div>
-            <small>公开共享游戏局</small>
-            <b>无需登录，用局号和同伴同步公开游戏记录</b>
-          </div>
-          <button className="ui-button ui-button--secondary" onClick={() => setSharedRoomOpen(true)}>创建或加入共享局</button>
+        <nav className="start-mode-tabs" aria-label="开始方式">
+          <button className={startTab === "join" ? "active" : ""} onClick={() => setStartTab("join")}>加入游戏</button>
+          <button className={startTab === "new" ? "active" : ""} onClick={() => setStartTab("new")}>开始新游戏</button>
+        </nav>
+        {startTab === "join" ? (
+          <section className="cloud-lobby" aria-label="加入云端游戏">
+            <div className="cloud-join-box">
+              <div><small>输入 7 位局号</small><h2>加入云端游戏</h2></div>
+              <label><span className="sr-only">7 位局号</span><input value={roomCode} maxLength={7} inputMode="text" autoCapitalize="characters" placeholder="ABCDEFG" onChange={(event) => { setRoomCode(normaliseRoomCode(event.target.value)); setJoinError(""); }} /></label>
+              <button className="ui-button ui-button--primary" disabled={!sharedAvailable || !ROOM_CODE_PATTERN.test(roomCode)} onClick={() => void tryJoin(roomCode)}>加入云端游戏</button>
+              {roomCode.length > 0 && roomCode.length < 7 && <p className="cloud-error">请输入完整的 7 位局号</p>}
+              {joinError && <p className="cloud-error">{joinError}</p>}
+            </div>
+            <div className="cloud-room-list-heading"><div><small>共享记录</small><h2>云端游戏列表</h2></div><span>最多显示最近更新的 100 局</span></div>
+            <div className="cloud-room-list" data-scroll-drag="ignore">
+              {cloudLoading ? <p className="cloud-list-message">正在加载云端记录…</p> : cloudError ? <p className="cloud-list-message cloud-error">云端记录暂时无法加载</p> : orderedCloudRooms.length === 0 ? <p className="cloud-list-message">还没有共享游戏记录</p> : orderedCloudRooms.map((room) => <CloudRoomCard key={room.id} room={room} participated={recentCodes.has(room.room_code)} join={() => void tryJoin(room.room_code)} />)}
+            </div>
+          </section>
+        ) : (<div className="new-game-flow">
+        <section className="shared-game-entry" aria-label="创建共享游戏局">
+          <div><small>可选</small><b>先创建共享局，再按原有流程选择板子和人数</b></div>
+          <button className="ui-button ui-button--secondary" disabled={!sharedAvailable} onClick={createSharedGame}>创建云端共享局</button>
         </section>
         <div className="start-layout">
         <section className="setup-card board-setup">
@@ -3567,6 +3733,7 @@ function StartScreen({
         </small>
         </div>
         </div>
+        </div>)}
         {manager && (
           <BoardManager
             language={language}
@@ -3584,23 +3751,6 @@ function StartScreen({
             close={() => setPreviewBoard(null)}
           />
         )}
-        <BottomSheet
-          open={sharedRoomOpen}
-          onOpenChange={setSharedRoomOpen}
-          title="共享游戏局"
-          description={sharedAvailable ? "局号只同步公开流程；私人角色、笔记和判断始终仅留在本机。" : "请先在部署环境配置 Supabase 后再创建或加入。"}
-          snap={0.66}
-        >
-          <div className="shared-room-sheet">
-            <button className="shared-create ui-button ui-button--primary" disabled={!sharedAvailable} onClick={createSharedGame}>创建新的共享游戏局</button>
-            <label>
-              <span>输入 7 位局号加入</span>
-              <input value={roomCode} maxLength={7} placeholder="ABCDEFG" onChange={(event) => setRoomCode(normaliseRoomCode(event.target.value))} />
-            </label>
-            <button className="ui-button ui-button--secondary" disabled={!sharedAvailable || !ROOM_CODE_PATTERN.test(roomCode)} onClick={() => joinSharedGame(roomCode)}>加入游戏局</button>
-            {recentRooms.length > 0 && <section className="recent-shared-rooms"><b>最近游戏</b>{recentRooms.map((room) => <button key={room.roomCode} onClick={() => joinSharedGame(room.roomCode)}><strong>{room.roomCode}</strong><span>{room.gameType} · {new Date(room.lastAccessedAt).toLocaleString("zh-CN")}</span><small>{room.summary}</small></button>)}</section>}
-          </div>
-        </BottomSheet>
         <BottomSheet
           open={manualOpen}
           onOpenChange={setManualOpen}
