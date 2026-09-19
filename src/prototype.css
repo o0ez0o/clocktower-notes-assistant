@@ -4351,6 +4351,30 @@ body,
   }
 }
 .start-hero { text-align: left; }
+.shared-game-entry {
+  display:flex; align-items:center; justify-content:space-between; gap:18px;
+  margin:0 28px 18px; padding:14px 18px; border:1px solid #cfb78d;
+  border-radius:14px; background:rgba(255,250,238,.68); color:#43291d;
+}
+.shared-game-entry small,.shared-game-entry b { display:block; }
+.shared-game-entry small { color:#8f302e; font-size:12px; margin-bottom:3px; }
+.shared-game-entry b { font-size:14px; }
+.shared-room-strip { display:flex; align-items:center; justify-content:flex-end; gap:8px; margin:0 20px 8px; color:#735443; font-size:12px; }
+.shared-room-strip b { letter-spacing:.12em; color:#792321; }
+.shared-room-strip button { border:1px solid #cdb389; border-radius:7px; background:#fff7e6; color:#6a382c; padding:4px 8px; font:inherit; }
+.shared-room-sheet { display:grid; gap:14px; padding:8px 0 20px; }
+.shared-room-sheet label { display:grid; gap:7px; color:#5a4132; font-weight:700; }
+.shared-room-sheet input { min-height:48px; border:1px solid #b99668; border-radius:10px; padding:0 14px; letter-spacing:.14em; text-transform:uppercase; font-weight:800; font-size:18px; background:#fff8e9; }
+.recent-shared-rooms { display:grid; gap:8px; margin-top:8px; }
+.recent-shared-rooms > b { color:#7c302c; }
+.recent-shared-rooms button { display:grid; grid-template-columns:auto 1fr; gap:3px 10px; text-align:left; border:1px solid #dec9a3; border-radius:10px; padding:10px 12px; background:#fffaf0; color:#563b2e; }
+.recent-shared-rooms strong { grid-row:span 2; letter-spacing:.12em; color:#7a2723; }
+.recent-shared-rooms small { grid-column:2; color:#8a7567; }
+@media (max-width:699px) {
+  .shared-game-entry { margin:0 14px 14px; align-items:flex-start; flex-direction:column; gap:10px; }
+  .shared-game-entry .ui-button { width:100%; }
+  .shared-room-strip { margin:4px 14px 8px; justify-content:flex-start; flex-wrap:wrap; }
+}
 .start-heading-row {
   display: flex;
   align-items: flex-start;
