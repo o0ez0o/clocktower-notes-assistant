@@ -225,7 +225,7 @@ body,
     height: 100dvh !important;
     min-height: 0 !important;
     display: grid !important;
-    grid-template-rows: auto minmax(0, 1fr) !important;
+    grid-template-rows: auto auto minmax(0, 1fr) !important;
     padding: 12px 12px calc(12px + env(safe-area-inset-bottom)) !important;
     overflow: hidden !important;
   }
@@ -295,7 +295,7 @@ body,
     height: 100vh !important;
     padding: 28px 32px 24px !important;
     display: grid !important;
-    grid-template-rows: auto minmax(0, 1fr) !important;
+    grid-template-rows: auto auto minmax(0, 1fr) !important;
     overflow: hidden !important;
   }
   .start-screen .start-hero { padding: 4px 0 22px; }
