@@ -3280,6 +3280,21 @@ button {
 .display-settings .online-game-settings > p { margin:0; padding:12px; border-radius:10px; background:#f7efe1; color:#806b5b; font-size:12px; line-height:1.55; }
 .display-settings .online-game-settings .cloud-room-card { height:auto; min-height:112px; margin:0; padding:13px 14px; }
 .display-settings .online-game-settings > .ui-button { width:100%; min-height:44px; height:auto; }
+.online-room-status { display:grid !important; grid-template-columns:1fr 1fr !important; gap:8px !important; margin:0 !important; }
+.online-room-status > div { min-width:0; display:grid; gap:3px; margin:0; padding:10px; border:1px solid rgba(126,91,55,.16); border-radius:9px; background:#f8f0e2; }
+.online-room-status span { color:#8c7668; font-size:10px; }
+.online-room-status b { overflow:hidden; color:#5a4033; font-size:11px; text-overflow:ellipsis; white-space:nowrap; }
+.online-game-footer-actions { display:grid !important; grid-template-columns:1fr 1.35fr 1fr !important; gap:7px !important; margin:0 !important; }
+.display-settings .online-game-footer-actions button { width:100%; min-width:0; min-height:42px; height:auto; padding:6px; font-size:11px; }
+.ui-button--danger { border-color:#9b302e !important; background:#9b302e !important; color:#fff !important; }
+.shared-game-editor { display:grid; gap:18px; padding:4px 0 14px; }
+.shared-game-editor > label { display:grid; gap:7px; color:#5a4032; font-weight:800; }
+.shared-game-editor select { width:100%; min-height:46px; padding:0 12px; border:1px solid #c8aa7c; border-radius:9px; background:#fff9ed; color:#503629; font:inherit; }
+.shared-game-editor > section { display:grid; gap:10px; color:#5a4032; }
+.shared-composition-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.shared-composition-grid > div { display:grid; grid-template-columns:1fr 34px 28px 34px; align-items:center; gap:4px; padding:9px; border:1px solid #dcc7a5; border-radius:10px; background:#fff9ed; }
+.shared-composition-grid button { width:34px; height:34px; padding:0; border:1px solid #c8aa7c; border-radius:8px; background:#f8ecd7; color:#7f2527; }
+.shared-composition-grid b { text-align:center; }
 .player-node.active {
   z-index: 500;
 }
@@ -4803,6 +4818,8 @@ body,
 .cloud-room-list { grid-column:2; min-height:300px; max-height:calc(100vh - 315px); margin-top:-19px; padding:12px; overflow:auto; border-radius:0 0 16px 16px; }
 .cloud-room-card { width:100%; min-height:112px; display:grid; grid-template-rows:1fr auto auto; gap:9px; margin:0 0 9px; padding:13px 14px; text-align:left; border:1px solid #dcc5a0; border-radius:12px; background:#fffaf0; color:#533a2e; }
 .cloud-room-card:hover { border-color:#a95950; box-shadow:0 4px 14px rgba(90,54,31,.08); }
+.cloud-room-card--static { box-sizing:border-box; cursor:default; }
+.cloud-room-card--static:hover { border-color:#dcc5a0; box-shadow:none; }
 .cloud-room-card__top,.cloud-room-card__meta { display:flex; align-items:center; justify-content:space-between; min-width:0; gap:12px; }
 .cloud-room-card__top strong { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:15px; }
 .cloud-room-card__top em { flex:none; padding:3px 7px; border-radius:999px; background:#ead5b2; color:#7b4431; font-size:10px; font-style:normal; font-weight:700; }

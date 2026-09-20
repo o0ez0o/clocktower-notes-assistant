@@ -666,6 +666,7 @@ const localizedToast = (language: Language, value: string) =>
         .replace(/官方角色描述载入失败/g, "Official role text failed to load");
 export default function Prototype() {
   const [started, setStarted] = useState(false),
+    [startOnNewGame, setStartOnNewGame] = useState(false),
     [boards, setBoards] = useState<ScriptBoard[]>(() => {
       try {
         const saved = JSON.parse(
@@ -771,6 +772,9 @@ export default function Prototype() {
   const [sharedRoom, setSharedRoom] = useState<SharedRoom | null>(null);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
   const [sharedRoomOpen, setSharedRoomOpen] = useState(false);
+  const [sharedEditOpen, setSharedEditOpen] = useState(false);
+  const [sharedBoardDraft, setSharedBoardDraft] = useState(selectedBoardId);
+  const [sharedCompositionDraft, setSharedCompositionDraft] = useState<Composition>(composition);
   const [onlineCount, setOnlineCount] = useState(0);
   const [roomNameDraft, setRoomNameDraft] = useState("");
   const [recentRooms, setRecentRooms] = useState<RecentRoom[]>(readRecentRooms);
@@ -824,12 +828,12 @@ export default function Prototype() {
       notePlayer !== null ||
       relationDraft !== null ||
       deathDecisionPlayer !== null ||
-      notes;
+      notes || sharedEditOpen;
     document.documentElement.dataset.desktopModal = active ? "true" : "false";
     return () => {
       delete document.documentElement.dataset.desktopModal;
     };
-  }, [board, settingsOpen, manualOpen, rolePlayer, notePlayer, relationDraft, deathDecisionPlayer, notes]);
+  }, [board, settingsOpen, manualOpen, rolePlayer, notePlayer, relationDraft, deathDecisionPlayer, notes, sharedEditOpen]);
   useEffect(() => {
     if (!settingsOpen) return;
     let cleanup = () => {};
@@ -1059,6 +1063,7 @@ export default function Prototype() {
     setOnlineCount(0);
     setSharedRoomOpen(false);
     setSyncStatus("idle");
+    setStartOnNewGame(false);
     setStarted(false);
     const nextUrl = new URL(window.location.href);
     nextUrl.searchParams.delete("room");
@@ -1098,6 +1103,74 @@ export default function Prototype() {
       catch { /* cancelled/native share unavailable: copied link remains */ }
     }
     setToast("邀请链接已复制");
+  };
+  const openSharedGameEditor = () => {
+    setSharedBoardDraft(selectedBoardId);
+    setSharedCompositionDraft({ ...composition });
+    setSettingsOpen(false);
+    setSharedEditOpen(true);
+  };
+  const saveSharedGameEditor = async () => {
+    const room = sharedRoomRef.current;
+    const nextBoard = boards.find((item) => item.id === sharedBoardDraft);
+    if (!room || !nextBoard) return;
+    const nextCount = Object.values(sharedCompositionDraft).reduce((sum, count) => sum + count, 0);
+    const nextName = makeDefaultRoomName(nextBoard.name, new Date(room.created_at), roomNameSuffix(room));
+    try {
+      setSyncStatus("syncing");
+      const updated = await updateRoom(room, {
+        game_type: nextBoard.name,
+        room_name: nextName,
+        game_state: {
+          ...room.game_state,
+          boardId: nextBoard.id,
+          composition: sharedCompositionDraft,
+          playerCount: nextCount,
+        },
+      });
+      if (!updated) throw new Error("REVISION_CONFLICT");
+      setSelectedBoardId(nextBoard.id);
+      setComposition(sharedCompositionDraft);
+      if (players.length !== nextCount) setPlayers(createPlayers(nextCount));
+      applySharedRoom(updated);
+      setSharedEditOpen(false);
+      setSettingsOpen(true);
+      setSyncStatus("synced");
+      setToast("游戏设置已保存");
+    } catch {
+      setSyncStatus("failed");
+      setToast("同步失败，请重试");
+    }
+  };
+  const finishSharedGame = async () => {
+    const room = sharedRoomRef.current;
+    if (!room) return;
+    try {
+      setSyncStatus("syncing");
+      const updated = await updateRoom(room, {
+        status: "finished",
+        finished_at: new Date().toISOString(),
+        game_state: { ...room.game_state, phase: "finished" },
+      });
+      if (!updated) throw new Error("REVISION_CONFLICT");
+      rememberRoom(updated);
+      setRecentRooms(readRecentRooms());
+      unsubscribeSharedRoom.current?.();
+      unsubscribeSharedRoom.current = null;
+      sharedRoomRef.current = null;
+      setSharedRoom(null);
+      setOnlineCount(0);
+      setSettingsOpen(false);
+      setStarted(false);
+      setStartOnNewGame(true);
+      const nextUrl = new URL(window.location.href);
+      nextUrl.searchParams.delete("room");
+      window.history.replaceState(null, "", nextUrl.toString());
+      setToast("本局已结束");
+    } catch {
+      setSyncStatus("failed");
+      setToast("同步失败，请重试");
+    }
   };
   useEffect(() => {
     if (urlJoinHandled.current) return;
@@ -1537,6 +1610,7 @@ export default function Prototype() {
     );
   const playerCount = Object.values(composition).reduce((a, b) => a + b, 0);
   const startGame = () => {
+    setStartOnNewGame(false);
     setPlayers(createPlayers(playerCount));
     setDay(1);
     setMaxDay(1);
@@ -1575,6 +1649,7 @@ export default function Prototype() {
         joinSharedGame={joinSharedGame}
         recentRooms={recentRooms}
         sharedAvailable={supabaseReady}
+        initialTab={startOnNewGame ? "new" : "join"}
       />
     );
   return (
@@ -2526,12 +2601,26 @@ export default function Prototype() {
               )}
             </div>
             {sharedRoom ? (
-              <CloudRoomCard room={sharedRoom} participated join={() => { setSettingsOpen(false); setSharedRoomOpen(true); }} />
+              <>
+                <CloudRoomCard room={sharedRoom} participated interactive={false} />
+                <div className="online-room-status">
+                  <div><span>同步状态</span><b>{syncStatus === "syncing" ? "正在同步…" : syncStatus === "failed" ? "同步失败，请重试" : "已同步"}</b></div>
+                  <div><span>当前连接人数</span><b>正在连接 {onlineCount || 1} 人</b></div>
+                  <div><span>开始于</span><b>{new Date(sharedRoom.started_at || sharedRoom.created_at).toLocaleString("zh-CN")}</b></div>
+                  <div><span>最后更新</span><b>{new Date(sharedRoom.updated_at).toLocaleString("zh-CN")}</b></div>
+                </div>
+              </>
             ) : (
               <p>当前游戏还没有共享数据。产生公开游戏记录后会自动创建共享局。</p>
             )}
             {!sharedRoom && <button className="ui-button ui-button--secondary" disabled={!supabaseReady || syncStatus === "syncing"} onClick={() => void createSharedGame()}>{syncStatus === "syncing" ? "正在创建…" : "手动创建游戏局"}</button>}
-            <button className="ui-button ui-button--secondary" onClick={() => { setSettingsOpen(false); leaveSharedGame(); }}>返回共享游戏列表</button>
+            {sharedRoom && (
+              <div className="online-game-footer-actions">
+                <button className="ui-button ui-button--secondary" onClick={openSharedGameEditor}>编辑游戏</button>
+                <button className="ui-button ui-button--secondary" onClick={() => { setSettingsOpen(false); leaveSharedGame(); }}>返回共享游戏列表</button>
+                <button className="ui-button ui-button--danger" onClick={() => void finishSharedGame()}>结束此局</button>
+              </div>
+            )}
           </section>
           <section className="settings-section">
           <h3>显示设置</h3>
@@ -2606,6 +2695,37 @@ export default function Prototype() {
             </div>
           </section>
           </section>
+        </div>
+      </BottomSheet>
+      <BottomSheet
+        open={sharedEditOpen}
+        onOpenChange={setSharedEditOpen}
+        title="编辑游戏"
+        description="只修改本局板子与人数配置"
+        snap={0.68}
+      >
+        <button aria-label={t("关闭")} className="desktop-modal-close" onClick={() => setSharedEditOpen(false)}><Cross2Icon /></button>
+        <div className="shared-game-editor">
+          <label>
+            <span>游戏板子</span>
+            <select value={sharedBoardDraft} onChange={(event) => setSharedBoardDraft(event.target.value)}>
+              {boards.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+            </select>
+          </label>
+          <section>
+            <b>人数配置</b>
+            <div className="shared-composition-grid">
+              {(["镇民", "外来者", "爪牙", "恶魔"] as CoreTeam[]).map((teamName) => (
+                <div key={teamName}>
+                  <span>{teamName}</span>
+                  <button onClick={() => setSharedCompositionDraft({ ...sharedCompositionDraft, [teamName]: Math.max(teamName === "恶魔" ? 1 : 0, sharedCompositionDraft[teamName] - 1) })}>−</button>
+                  <b>{sharedCompositionDraft[teamName]}</b>
+                  <button onClick={() => setSharedCompositionDraft({ ...sharedCompositionDraft, [teamName]: sharedCompositionDraft[teamName] + 1 })}>＋</button>
+                </div>
+              ))}
+            </div>
+          </section>
+          <button className="ui-button ui-button--primary" onClick={() => void saveSharedGameEditor()}>确定并保存</button>
         </div>
       </BottomSheet>
       <BottomSheet
@@ -3665,7 +3785,7 @@ function BoardCard({
   );
 }
 
-function CloudRoomCard({ room, participated, join }: { room: SharedRoom; participated: boolean; join: () => void }) {
+function CloudRoomCard({ room, participated, join, interactive = true }: { room: SharedRoom; participated: boolean; join?: () => void; interactive?: boolean }) {
   const dead = new Set<number>();
   for (const event of room.game_state.deaths as DeathEvent[]) {
     if (event.reason === "revival") dead.delete(event.playerId); else dead.add(event.playerId);
@@ -3679,13 +3799,16 @@ function CloudRoomCard({ room, participated, join }: { room: SharedRoom; partici
   const status = room.status === "finished"
     ? `已结束 · ${winner}`
     : [`进行到第 ${room.game_state.day || 1} 天`, compositionText, total ? `存活 ${Math.max(0, total - dead.size)}/${total} 人` : ""].filter(Boolean).join(" · ");
-  return (
-    <button className="cloud-room-card" onClick={join}>
+  const content = (
+    <>
       <span className="cloud-room-card__top"><strong title={room.room_name}>{room.room_name || makeDefaultRoomName(room.game_type)}</strong>{participated && <em>本机参与</em>}</span>
       <span className="cloud-room-card__meta"><b>{room.room_code}</b><span>{room.game_type}</span></span>
       <span className="cloud-room-card__status">{status}</span>
-    </button>
+    </>
   );
+  return interactive
+    ? <button className="cloud-room-card" onClick={join}>{content}</button>
+    : <article className="cloud-room-card cloud-room-card--static">{content}</article>;
 }
 
 function StartScreen({
@@ -3707,6 +3830,7 @@ function StartScreen({
   joinSharedGame,
   recentRooms,
   sharedAvailable,
+  initialTab,
 }: {
   language: Language;
   setLanguage: (v: Language) => void;
@@ -3726,13 +3850,14 @@ function StartScreen({
   joinSharedGame: (code: string) => Promise<"joined" | "invalid" | "not_found" | "unavailable" | "failed">;
   recentRooms: RecentRoom[];
   sharedAvailable: boolean;
+  initialTab: "join" | "new";
 }) {
   const t = (text: string) => translate(language, text);
   const [previewBoard, setPreviewBoard] = useState<ScriptBoard | null>(null);
   const [setupStep, setSetupStep] = useState<1 | 2>(1);
   const [boardQuery, setBoardQuery] = useState("");
   const [roomCode, setRoomCode] = useState("");
-  const [startTab, setStartTab] = useState<"join" | "new">("join");
+  const [startTab, setStartTab] = useState<"join" | "new">(initialTab);
   const [cloudRooms, setCloudRooms] = useState<SharedRoom[]>([]);
   const [cloudLoading, setCloudLoading] = useState(true);
   const [cloudError, setCloudError] = useState(false);

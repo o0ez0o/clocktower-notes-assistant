@@ -77,7 +77,7 @@ export async function createRoom(gameType: string, state: SharedGameState, roomN
   }
   throw new Error("ROOM_CREATE_FAILED");
 }
-export async function updateRoom(room: Pick<SharedRoom, "id" | "revision" | "room_code">, patch: Partial<Pick<SharedRoom, "room_name" | "game_state" | "status" | "result" | "started_at" | "finished_at">>): Promise<SharedRoom | null> {
+export async function updateRoom(room: Pick<SharedRoom, "id" | "revision" | "room_code">, patch: Partial<Pick<SharedRoom, "room_name" | "game_type" | "game_state" | "status" | "result" | "started_at" | "finished_at">>): Promise<SharedRoom | null> {
   const updated = await request<SharedRoom[]>(`game_rooms?id=eq.${encodeURIComponent(room.id)}&revision=eq.${room.revision}`, { method: "PATCH", headers: headers("return=representation"), body: JSON.stringify({ ...patch, revision: room.revision + 1, updated_at: new Date().toISOString() }) }, room.room_code);
   return updated[0] || null;
 }
