@@ -149,7 +149,10 @@ type DeathEvent = {
 };
 
 const roomNameSuffix = (room: Pick<SharedRoom, "room_name">) =>
-  room.room_name.match(/^\d{2}年\d{1,2}月\d{1,2} · .+ · (.+)$/)?.[1]?.trim() || "1";
+  room.room_name.match(/^\d{2}年\d{1,2}月\d{1,2} · (?:.+ · )?(.+)$/)?.[1]?.trim() || "1";
+
+const displayedRoomName = (room: Pick<SharedRoom, "room_name" | "game_type" | "created_at">) =>
+  makeDefaultRoomName(room.game_type, new Date(room.created_at), roomNameSuffix(room));
 type ScriptBoard = {
   id: string;
   name: string;
@@ -1090,7 +1093,7 @@ export default function Prototype() {
   };
   const copyInvite = async () => {
     if (!sharedRoom) return;
-    const invitation = `${makeRoomUrl(sharedRoom.room_code)}\n\n点击加入 ${sharedRoom.room_name}`;
+    const invitation = `${makeRoomUrl(sharedRoom.room_code)}\n\n点击加入 ${displayedRoomName(sharedRoom)} ${sharedRoom.game_type}`;
     await navigator.clipboard?.writeText(invitation);
     setToast("邀请文案已复制");
   };
@@ -1099,7 +1102,7 @@ export default function Prototype() {
     const shareUrl = makeRoomUrl(sharedRoom.room_code);
     await navigator.clipboard?.writeText(shareUrl);
     if (navigator.share) {
-      try { await navigator.share({ title: sharedRoom.room_name, text: `点击加入当前血染钟楼“${sharedRoom.room_name}”，共享本局游戏记录`, url: shareUrl }); setToast("邀请链接已复制并分享"); return; }
+      try { await navigator.share({ title: displayedRoomName(sharedRoom), text: `点击加入 ${displayedRoomName(sharedRoom)} ${sharedRoom.game_type}`, url: shareUrl }); setToast("邀请链接已复制并分享"); return; }
       catch { /* cancelled/native share unavailable: copied link remains */ }
     }
     setToast("邀请链接已复制");
@@ -3801,7 +3804,7 @@ function CloudRoomCard({ room, participated, join, interactive = true }: { room:
     : [`进行到第 ${room.game_state.day || 1} 天`, compositionText, total ? `存活 ${Math.max(0, total - dead.size)}/${total} 人` : ""].filter(Boolean).join(" · ");
   const content = (
     <>
-      <span className="cloud-room-card__top"><strong title={room.room_name}>{room.room_name || makeDefaultRoomName(room.game_type)}</strong>{participated && <em>本机参与</em>}</span>
+      <span className="cloud-room-card__top"><strong title={displayedRoomName(room)}>{displayedRoomName(room)}</strong>{participated && <em>本机参与</em>}</span>
       <span className="cloud-room-card__meta"><b>{room.room_code}</b><span>{room.game_type}</span></span>
       <span className="cloud-room-card__status">{status}</span>
     </>

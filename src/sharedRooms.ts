@@ -44,9 +44,8 @@ export function createRoomCode() {
   return [...bytes].map((byte) => alphabet[byte % alphabet.length]).join("");
 }
 export function truncateChars(value: string, maximum = 30) { return [...value].slice(0, maximum).join(""); }
-export function makeRoomNamePrefix(boardName: string, now = new Date()) {
-  const board = boardName.replace(/[（(].*?[）)]/g, "").replace(/局+$/, "").trim() || "未命名";
-  return `${String(now.getFullYear()).slice(-2)}年${now.getMonth() + 1}月${now.getDate()} · ${board} · `;
+export function makeRoomNamePrefix(_boardName: string, now = new Date()) {
+  return `${String(now.getFullYear()).slice(-2)}年${now.getMonth() + 1}月${now.getDate()} · `;
 }
 export function makeDefaultRoomName(boardName: string, now = new Date(), suffix = "1") {
   const prefix = makeRoomNamePrefix(boardName, now);
