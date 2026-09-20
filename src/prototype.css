@@ -4427,7 +4427,7 @@ body,
 .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
 @media (max-width:699px) {
   .new-game-flow { overflow:hidden; }
-  .new-game-flow .shared-game-entry { flex:none; position:relative; z-index:1; }
+  .new-game-flow .shared-game-entry { flex:none; position:relative; z-index:1; margin:0 0 14px; }
   .new-game-flow .start-layout { flex:1; overflow:hidden; }
   .start-mode-tabs { margin:0 14px 14px; }
   .cloud-lobby { grid-template-columns:1fr; margin:0 14px 18px; }
