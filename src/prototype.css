@@ -161,6 +161,119 @@
   filter: grayscale(1);
 }
 
+/* The mobile vote card replaces, rather than overlaps, the reserved bottom
+   controls area. The desktop dial keeps its compact in-dial actions. */
+.vote-dial-actions--mobile {
+  display: none !important;
+}
+
+@media (max-width: 699px) {
+  body .clock-app .vote-dial-actions--desktop {
+    display: none !important;
+  }
+
+  .clock-app:has(.vote-dial-actions--mobile) .possibilities,
+  .clock-app:has(.vote-dial-actions--mobile) .bottom-tools {
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+
+  body .clock-app .vote-dial-actions--mobile {
+    position: fixed !important;
+    z-index: 1000 !important;
+    top: auto !important;
+    right: 8px !important;
+    bottom: calc(8px + env(safe-area-inset-bottom)) !important;
+    left: 8px !important;
+    width: auto !important;
+    height: 108px !important;
+    min-height: 108px !important;
+    max-height: 108px !important;
+    display: grid !important;
+    grid-template-columns: 92px minmax(0, 1fr) !important;
+    grid-template-rows: 36px 44px !important;
+    grid-template-areas:
+      "choices choices"
+      "cancel confirm" !important;
+    align-items: stretch !important;
+    justify-items: stretch !important;
+    gap: 8px !important;
+    box-sizing: border-box !important;
+    margin: 0 !important;
+    padding: 10px !important;
+    overflow: hidden !important;
+    border: 1px solid rgba(112, 76, 43, 0.32) !important;
+    border-radius: 15px !important;
+    background: #fff9ed !important;
+    box-shadow: 0 -8px 24px rgba(55, 31, 18, 0.2) !important;
+  }
+
+  body .clock-app .vote-dial-actions--mobile .vote-relation-choices {
+    grid-area: choices !important;
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    margin: 0 !important;
+  }
+
+  body .clock-app .vote-dial-actions--mobile .vote-relation-choices button {
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 36px !important;
+    height: 36px !important;
+    padding: 0 !important;
+    border-radius: 9px !important;
+    background: #fff !important;
+    font-size: 14px !important;
+    font-weight: 800 !important;
+  }
+
+  body .clock-app .vote-dial-actions--mobile .vote-relation-choices .good {
+    border: 1.5px solid #3c8b59 !important;
+    color: #287046 !important;
+  }
+
+  body .clock-app .vote-dial-actions--mobile .vote-relation-choices .bad {
+    border: 1.5px solid #b53a3a !important;
+    color: #9f2727 !important;
+  }
+
+  body .clock-app .vote-dial-actions--mobile .vote-relation-choices .private {
+    border: 1.5px solid #85817b !important;
+    color: #66625d !important;
+  }
+
+  body .clock-app .vote-dial-actions--mobile .vote-exit-button,
+  body .clock-app .vote-dial-actions--mobile .vote-dial-confirm {
+    position: static !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    margin: 0 !important;
+    padding: 0 12px !important;
+    border-radius: 10px !important;
+    font-size: 14px !important;
+  }
+
+  body .clock-app .vote-dial-actions--mobile .vote-exit-button {
+    grid-area: cancel !important;
+    box-shadow: none !important;
+  }
+
+  body .clock-app .vote-dial-actions--mobile .vote-exit-button svg {
+    display: none !important;
+  }
+
+  body .clock-app .vote-dial-actions--mobile .vote-exit-button::after {
+    content: "取消";
+  }
+
+  body .clock-app .vote-dial-actions--mobile .vote-dial-confirm {
+    grid-area: confirm !important;
+  }
+}
+
 /* Final mobile cloud-lobby and nomination action layout. These rules stay at
    the end of the cascade so older prototype layouts cannot expand the card. */
 @media (max-width: 699px) {
@@ -5383,4 +5496,30 @@ body,
 .player-node.vote-disabled {
   opacity: 0.28;
   filter: grayscale(1);
+}
+
+@media (max-width: 699px) {
+  html body .clock-app .vote-dial-actions.vote-dial-actions--desktop {
+    display: none !important;
+  }
+
+  html body .clock-app .vote-dial-actions.vote-dial-actions--mobile {
+    position: fixed !important;
+    top: auto !important;
+    right: 8px !important;
+    bottom: calc(8px + env(safe-area-inset-bottom)) !important;
+    left: 8px !important;
+    width: auto !important;
+    height: 108px !important;
+    min-height: 108px !important;
+    max-height: 108px !important;
+    display: grid !important;
+    grid-template-columns: 92px minmax(0, 1fr) !important;
+    grid-template-rows: 36px 44px !important;
+    grid-template-areas: "choices choices" "cancel confirm" !important;
+    gap: 8px !important;
+    margin: 0 !important;
+    padding: 10px !important;
+    overflow: hidden !important;
+  }
 }

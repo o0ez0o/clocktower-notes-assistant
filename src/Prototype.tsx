@@ -1874,7 +1874,7 @@ export default function Prototype() {
                 )}
               </div>
               {drag && (
-                <div className="vote-dial-actions">
+                <div className="vote-dial-actions vote-dial-actions--desktop">
                   <strong className="vote-action-title">
                     {language === "zh" ? "玩家" : "Player"} {drag.from} → {language === "zh" ? "玩家" : "Player"} {drag.to}
                   </strong>
@@ -2143,6 +2143,40 @@ export default function Prototype() {
               </button>
             </Carousel>
           </section>
+          {drag && (
+            <div className="vote-dial-actions vote-dial-actions--mobile" aria-label={t("投票操作") }>
+              <div className="vote-relation-choices">
+                <button className="good" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.preventDefault(); event.stopPropagation(); finish("good"); }}>{t("保")}</button>
+                <button className="bad" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.preventDefault(); event.stopPropagation(); finish("bad"); }}>{t("踩")}</button>
+                <button className="private" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.preventDefault(); event.stopPropagation(); finish("private"); }}>{t("私")}</button>
+              </div>
+              <button
+                className="vote-exit-button"
+                aria-label={t("取消")}
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setDrag(null);
+                  setVotes([]);
+                }}
+              >
+                <Cross2Icon />
+              </button>
+              <button
+                className={`vote-dial-confirm ${votes.length > livingCount / 2 ? "execution" : ""}`}
+                disabled={nominationSources.has(drag.from) || nominationTargets.has(drag.to)}
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  finish("nominate");
+                }}
+              >
+                {t(votes.length > livingCount / 2 ? "标记处决" : "确认")} · {votes.length}{t("票")}
+              </button>
+            </div>
+          )}
           <div className="bottom-tools">
             <div className="compact-tools-menu">
               <button
