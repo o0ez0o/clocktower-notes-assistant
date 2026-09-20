@@ -2576,11 +2576,11 @@ export default function Prototype() {
         onOpenChange={setBoard}
         title={currentBoard.name}
         description={`${t("本局板子")} · ${boardRoles.length} ${t("个角色")}`}
-        snap={0.88}
+        snap={1}
       >
         <button
           aria-label={t("关闭")}
-          className="desktop-modal-close"
+          className="desktop-modal-close board-info-panel-close"
           onClick={() => setBoard(false)}
         >
           <Cross2Icon />
@@ -2588,8 +2588,8 @@ export default function Prototype() {
         <div className="in-game-board-preview" data-scroll-drag="ignore">
           <ScriptPreviewContent board={currentBoard} language={language} />
         </div>
-        <button className="end-game" onClick={endGame}>
-          {t("结束本局并返回主页")}
+        <button className="end-game board-info-footer-close" onClick={() => setBoard(false)}>
+          {t("关闭")}
         </button>
       </BottomSheet>
       <BottomSheet

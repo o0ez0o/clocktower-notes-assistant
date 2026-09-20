@@ -517,6 +517,87 @@ body,
   }
 }
 
+/* Board information is a full-screen reference view at every breakpoint. */
+.bottom-sheet:has(.board-info-panel-close) {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100dvh !important;
+  max-width: none !important;
+  max-height: 100dvh !important;
+  transform: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+}
+.bottom-sheet:has(.board-info-panel-close) .sheet-handle-zone {
+  display: none !important;
+}
+.bottom-sheet:has(.board-info-panel-close) .sheet-header {
+  min-height: 70px;
+  box-sizing: border-box;
+  padding: 18px 68px 12px 24px !important;
+  align-content: center;
+}
+.bottom-sheet:has(.board-info-panel-close) .sheet-content {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  overflow: hidden !important;
+  padding: 0 24px calc(18px + env(safe-area-inset-bottom)) !important;
+}
+.board-info-panel-close {
+  position: absolute !important;
+  z-index: 12;
+  top: 18px !important;
+  right: 20px !important;
+  width: 38px !important;
+  height: 38px !important;
+  display: grid !important;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(92, 64, 43, 0.2);
+  border-radius: 10px;
+  background: #f8efe0;
+  color: #624535;
+}
+.board-info-panel-close svg {
+  width: 19px;
+  height: 19px;
+}
+.bottom-sheet:has(.board-info-panel-close) .in-game-board-preview {
+  height: auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+.board-info-footer-close {
+  width: 100%;
+  min-height: 48px;
+  margin: 12px 0 0;
+  flex: none;
+}
+.night-rail .system-night {
+  min-height: 26px;
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  line-height: 1.2;
+}
+
+@media (max-width: 699px) {
+  .bottom-sheet:has(.board-info-panel-close) .sheet-header {
+    min-height: 64px;
+    padding: 14px 62px 10px 16px !important;
+  }
+  .bottom-sheet:has(.board-info-panel-close) .sheet-content {
+    padding: 0 14px calc(12px + env(safe-area-inset-bottom)) !important;
+  }
+  .board-info-panel-close {
+    top: 13px !important;
+    right: 14px !important;
+  }
+}
+
 /* The first mobile prototype reserved a permanent 112–116px footer inside the
    application canvas. The current controls are viewport-fixed overlays, so
    that reservation only creates a blank strip and shrinks every in-game view. */
