@@ -148,6 +148,8 @@ type DeathEvent = {
   reason: "execution" | "manual" | "revival";
 };
 
+const ROOM_NAME_EDIT_LIMIT = 15;
+
 const roomNameSuffix = (room: Pick<SharedRoom, "room_name" | "game_type">) => {
   const datedName = room.room_name.match(/^\d{2}年\d{1,2}月\d{1,2} · (.+)$/)?.[1]?.trim();
   if (!datedName) return "1";
@@ -156,7 +158,7 @@ const roomNameSuffix = (room: Pick<SharedRoom, "room_name" | "game_type">) => {
     room.game_type.replace(/[（(].*?[）)]/g, "").replace(/局+$/, "").trim(),
   ].filter(Boolean);
   const legacyPrefix = legacyBoardNames.find((boardName) => datedName.startsWith(`${boardName} · `));
-  return (legacyPrefix ? datedName.slice(legacyPrefix.length + 3) : datedName).trim() || "1";
+  return truncateChars((legacyPrefix ? datedName.slice(legacyPrefix.length + 3) : datedName).trim() || "1", ROOM_NAME_EDIT_LIMIT);
 };
 
 const displayedRoomName = (room: Pick<SharedRoom, "room_name" | "game_type" | "created_at">) =>
@@ -1089,7 +1091,7 @@ export default function Prototype() {
   const saveRoomName = async () => {
     const room = sharedRoomRef.current;
     if (!room) return;
-    const nextName = makeDefaultRoomName(room.game_type, new Date(room.created_at), roomNameDraft);
+    const nextName = makeDefaultRoomName(room.game_type, new Date(room.created_at), truncateChars(roomNameDraft, ROOM_NAME_EDIT_LIMIT));
     if (nextName === room.room_name) return;
     try {
       setSyncStatus("syncing");
@@ -1122,6 +1124,7 @@ export default function Prototype() {
   const openSharedGameEditor = () => {
     setSharedBoardDraft(selectedBoardId);
     setSharedCompositionDraft({ ...composition });
+    if (sharedRoom) setRoomNameDraft(roomNameSuffix(sharedRoom));
     setSettingsOpen(false);
     setSharedEditOpen(true);
   };
@@ -1130,7 +1133,7 @@ export default function Prototype() {
     const nextBoard = boards.find((item) => item.id === sharedBoardDraft);
     if (!room || !nextBoard) return;
     const nextCount = Object.values(sharedCompositionDraft).reduce((sum, count) => sum + count, 0);
-    const nextName = makeDefaultRoomName(nextBoard.name, new Date(room.created_at), roomNameSuffix(room));
+    const nextName = makeDefaultRoomName(nextBoard.name, new Date(room.created_at), truncateChars(roomNameDraft, ROOM_NAME_EDIT_LIMIT));
     try {
       setSyncStatus("syncing");
       const updated = await updateRoom(room, {
@@ -2716,11 +2719,25 @@ export default function Prototype() {
         open={sharedEditOpen}
         onOpenChange={setSharedEditOpen}
         title="编辑游戏"
-        description="只修改本局板子与人数配置"
+        description="修改本局名称、板子与人数配置"
         snap={0.68}
       >
         <button aria-label={t("关闭")} className="desktop-modal-close" onClick={() => setSharedEditOpen(false)}><Cross2Icon /></button>
         <div className="shared-game-editor">
+          {sharedRoom && (
+            <label className="shared-room-name-field">
+              <span>游戏局名</span>
+              <div className="room-name-field">
+                <b>{makeRoomNamePrefix(sharedRoom.game_type, new Date(sharedRoom.created_at))}</b>
+                <input
+                  value={roomNameDraft}
+                  maxLength={ROOM_NAME_EDIT_LIMIT}
+                  onChange={(event) => setRoomNameDraft(truncateChars(event.target.value, ROOM_NAME_EDIT_LIMIT))}
+                />
+                <span>{[...roomNameDraft].length}/{ROOM_NAME_EDIT_LIMIT}</span>
+              </div>
+            </label>
+          )}
           <label className="shared-board-field">
             <span>游戏板子</span>
             <button
@@ -3054,11 +3071,11 @@ export default function Prototype() {
                   <input
                     id="shared-room-name"
                     value={roomNameDraft}
-                    maxLength={Math.max(1, 30 - [...makeRoomNamePrefix(sharedRoom.game_type, new Date(sharedRoom.created_at))].length)}
-                    onChange={(event) => setRoomNameDraft(truncateChars(event.target.value, Math.max(1, 30 - [...makeRoomNamePrefix(sharedRoom.game_type, new Date(sharedRoom.created_at))].length)))}
+                    maxLength={ROOM_NAME_EDIT_LIMIT}
+                    onChange={(event) => setRoomNameDraft(truncateChars(event.target.value, ROOM_NAME_EDIT_LIMIT))}
                     onKeyDown={(event) => { if (event.key === "Enter") void saveRoomName(); }}
                   />
-                  <span>{[...roomNameDraft].length}/{Math.max(1, 30 - [...makeRoomNamePrefix(sharedRoom.game_type, new Date(sharedRoom.created_at))].length)}</span>
+                  <span>{[...roomNameDraft].length}/{ROOM_NAME_EDIT_LIMIT}</span>
                 </div>
                 <button className="ui-button ui-button--secondary" disabled={makeDefaultRoomName(sharedRoom.game_type, new Date(sharedRoom.created_at), roomNameDraft) === sharedRoom.room_name} onClick={() => void saveRoomName()}>保存</button>
               </section>
