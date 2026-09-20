@@ -2842,7 +2842,8 @@ button {
 .display-settings {
   padding: 8px 2px;
 }
-.display-settings > label {
+.display-settings > label,
+.display-settings .settings-section > label {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2886,6 +2887,13 @@ button {
   color: #fff;
   border-color: #7f2527;
 }
+.display-settings .settings-section { display:grid; gap:0; padding:12px 4px 16px; border-bottom:1px solid rgba(103,71,42,.18); }
+.display-settings .settings-section > h3 { margin:0 0 6px; color:#7f2527; font-size:16px; }
+.display-settings .settings-section > section { padding:12px 0; }
+.display-settings .online-game-settings { gap:10px; }
+.display-settings .online-game-settings > p { margin:0; padding:12px; border-radius:10px; background:#f7efe1; color:#806b5b; font-size:12px; line-height:1.55; }
+.display-settings .online-game-settings .cloud-room-card { height:auto; min-height:112px; margin:0; padding:13px 14px; }
+.display-settings .online-game-settings > .ui-button { width:100%; min-height:44px; height:auto; }
 .player-node.active {
   z-index: 500;
 }

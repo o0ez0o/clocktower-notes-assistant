@@ -776,6 +776,7 @@ export default function Prototype() {
   const urlJoinHandled = useRef(false);
   const uploadingSharedRoom = useRef(false);
   const pendingRemoteRoom = useRef<SharedRoom | null>(null);
+  const autoCreatingSharedRoom = useRef(false);
   useEffect(
     () => localStorage.setItem("clocktower-boards", JSON.stringify(boards)),
     [boards],
@@ -1047,6 +1048,12 @@ export default function Prototype() {
     if (!sharedRoom?.room_code) return;
     localStorage.setItem(`private_marks:${sharedRoom.room_code}`, JSON.stringify({ players }));
   }, [sharedRoom?.room_code, players]);
+  useEffect(() => {
+    const hasPublicGameData = day > 1 || relations.some((relation) => relation.type === "nominate") || deaths.length > 0 || peacefulDays.length > 0;
+    if (!started || sharedRoomRef.current || !hasPublicGameData || autoCreatingSharedRoom.current) return;
+    autoCreatingSharedRoom.current = true;
+    void createSharedGame().finally(() => { autoCreatingSharedRoom.current = false; });
+  }, [started, day, relations, deaths, peacefulDays]);
   useEffect(() => {
     const room = sharedRoomRef.current;
     if (!room || !started || ignoreRemoteRevision.current === room.revision) {
@@ -1501,12 +1508,9 @@ export default function Prototype() {
         setSettingsOpen={setSettingsOpen}
         manualOpen={manualOpen}
         setManualOpen={setManualOpen}
-        createSharedGame={createSharedGame}
         joinSharedGame={joinSharedGame}
         recentRooms={recentRooms}
         sharedAvailable={supabaseReady}
-        sharedRoom={sharedRoom}
-        copySharedRoomCode={copyRoomCode}
       />
     );
   return (
@@ -2368,8 +2372,8 @@ export default function Prototype() {
       <BottomSheet
         open={settingsOpen}
         onOpenChange={setSettingsOpen}
-        title={t("显示设置")}
-        description={t("圆盘上的名字与标记")}
+        title={t("设置")}
+        description={t("显示设置与在线游戏")}
         snap={0.72}
       >
         <button
@@ -2380,6 +2384,8 @@ export default function Prototype() {
           <Cross2Icon />
         </button>
         <div className="display-settings">
+          <section className="settings-section">
+          <h3>显示设置</h3>
           <section className="language-setting">
             <b>{t("界面语言")}</b>
             <div>
@@ -2449,6 +2455,17 @@ export default function Prototype() {
                 </button>
               ))}
             </div>
+          </section>
+          </section>
+          <section className="settings-section online-game-settings">
+            <h3>在线游戏</h3>
+            {sharedRoom ? (
+              <CloudRoomCard room={sharedRoom} participated join={() => { setSettingsOpen(false); setSharedRoomOpen(true); }} />
+            ) : (
+              <p>当前游戏还没有共享数据。产生公开游戏记录后会自动创建共享局。</p>
+            )}
+            {!sharedRoom && <button className="ui-button ui-button--secondary" disabled={!supabaseReady || syncStatus === "syncing"} onClick={() => void createSharedGame()}>{syncStatus === "syncing" ? "正在创建…" : "手动创建游戏局"}</button>}
+            <button className="ui-button ui-button--secondary" onClick={leaveSharedGame}>返回共享游戏列表</button>
           </section>
           <button className="settings-manual-link" onClick={() => { setSettingsOpen(false); setManualOpen(true); }}>
             <img src={assetUrl("clocktower/feather.svg")} alt="" />
@@ -3528,12 +3545,9 @@ function StartScreen({
   setSettingsOpen,
   manualOpen,
   setManualOpen,
-  createSharedGame,
   joinSharedGame,
   recentRooms,
   sharedAvailable,
-  sharedRoom,
-  copySharedRoomCode,
 }: {
   language: Language;
   setLanguage: (v: Language) => void;
@@ -3550,12 +3564,9 @@ function StartScreen({
   setSettingsOpen: (v: boolean) => void;
   manualOpen: boolean;
   setManualOpen: (v: boolean) => void;
-  createSharedGame: () => Promise<SharedRoom | null>;
   joinSharedGame: (code: string) => Promise<"joined" | "invalid" | "not_found" | "unavailable" | "failed">;
   recentRooms: RecentRoom[];
   sharedAvailable: boolean;
-  sharedRoom: SharedRoom | null;
-  copySharedRoomCode: () => Promise<void>;
 }) {
   const t = (text: string) => translate(language, text);
   const [previewBoard, setPreviewBoard] = useState<ScriptBoard | null>(null);
@@ -3567,8 +3578,6 @@ function StartScreen({
   const [cloudLoading, setCloudLoading] = useState(true);
   const [cloudError, setCloudError] = useState(false);
   const [joinError, setJoinError] = useState("");
-  const [createdRoom, setCreatedRoom] = useState<SharedRoom | null>(null);
-  const [creatingRoom, setCreatingRoom] = useState(false);
   useEffect(() => {
     if (startTab !== "join" || !sharedAvailable) return;
     let active = true;
@@ -3593,14 +3602,6 @@ function StartScreen({
       .includes(boardQuery.trim().toLocaleLowerCase()),
   );
   const total = Object.values(composition).reduce((a, b) => a + b, 0);
-  const visibleSharedRoom = sharedRoom || createdRoom;
-  const handleCreateSharedGame = async () => {
-    if (creatingRoom) return;
-    setCreatingRoom(true);
-    const room = await createSharedGame();
-    if (room) setCreatedRoom(room);
-    setCreatingRoom(false);
-  };
   return (
     <WebPage>
       <main className="clock-app start-screen" data-setup-step={setupStep}>
@@ -3640,13 +3641,6 @@ function StartScreen({
             </div>
           </section>
         ) : (<div className="new-game-flow">
-        <section className={`shared-game-entry${visibleSharedRoom ? " shared-game-entry--created" : ""}`} aria-label="创建共享游戏局">
-          {visibleSharedRoom ? (
-            <><div><small>共享局已创建</small><b>{visibleSharedRoom.room_name}</b><span>局号 {visibleSharedRoom.room_code} · 可继续按原流程选择板子和人数</span></div><button className="ui-button ui-button--primary" onClick={() => void copySharedRoomCode()}>复制局号</button></>
-          ) : (
-            <><div><small>可选</small><b>先创建共享局，再按原有流程选择板子和人数</b></div><button className="ui-button ui-button--secondary" disabled={!sharedAvailable || creatingRoom} onClick={() => void handleCreateSharedGame()}>{creatingRoom ? "正在创建…" : "创建云端共享局"}</button></>
-          )}
-        </section>
         <div className="start-layout">
         <section className="setup-card board-setup">
           <div className="section-title">
