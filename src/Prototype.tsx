@@ -827,6 +827,49 @@ export default function Prototype() {
     };
   }, [board, settingsOpen, manualOpen, rolePlayer, notePlayer, relationDraft, deathDecisionPlayer, notes]);
   useEffect(() => {
+    if (!settingsOpen) return;
+    let cleanup = () => {};
+    const frame = window.requestAnimationFrame(() => {
+      const sheets = document.querySelectorAll<HTMLElement>('[data-testid="bottom-sheet"]');
+      const sheet = sheets[sheets.length - 1];
+      const header = sheet?.querySelector<HTMLElement>('.sheet-header');
+      if (!sheet || !header || window.matchMedia('(min-width: 1024px)').matches) return;
+      let pointerId: number | null = null;
+      let startY = 0;
+      let offset = 0;
+      const down = (event: PointerEvent) => {
+        pointerId = event.pointerId;
+        startY = event.clientY;
+        offset = 0;
+        header.setPointerCapture?.(event.pointerId);
+        sheet.style.transition = 'none';
+      };
+      const move = (event: PointerEvent) => {
+        if (pointerId !== event.pointerId) return;
+        offset = Math.max(0, event.clientY - startY);
+        sheet.style.transform = `translateY(${offset}px)`;
+      };
+      const end = (event: PointerEvent) => {
+        if (pointerId !== event.pointerId) return;
+        pointerId = null;
+        sheet.style.transition = '';
+        sheet.style.transform = '';
+        if (offset > 96) setSettingsOpen(false);
+      };
+      header.addEventListener('pointerdown', down);
+      header.addEventListener('pointermove', move);
+      header.addEventListener('pointerup', end);
+      header.addEventListener('pointercancel', end);
+      cleanup = () => {
+        header.removeEventListener('pointerdown', down);
+        header.removeEventListener('pointermove', move);
+        header.removeEventListener('pointerup', end);
+        header.removeEventListener('pointercancel', end);
+      };
+    });
+    return () => { window.cancelAnimationFrame(frame); cleanup(); };
+  }, [settingsOpen]);
+  useEffect(() => {
     if (roleSkillMode !== "hold") return;
     const closeHeldSkill = () => {
       if (roleTouchStart.current && performance.now() - roleTouchStart.current.at >= 180) {
@@ -2412,12 +2455,22 @@ export default function Prototype() {
       >
         <button
           aria-label={t("关闭")}
-          className="desktop-modal-close"
+          className="desktop-modal-close settings-panel-close"
           onClick={() => setSettingsOpen(false)}
         >
           <Cross2Icon />
         </button>
         <div className="display-settings">
+          <section className="settings-section online-game-settings">
+            <h3>在线游戏</h3>
+            {sharedRoom ? (
+              <CloudRoomCard room={sharedRoom} participated join={() => { setSettingsOpen(false); setSharedRoomOpen(true); }} />
+            ) : (
+              <p>当前游戏还没有共享数据。产生公开游戏记录后会自动创建共享局。</p>
+            )}
+            {!sharedRoom && <button className="ui-button ui-button--secondary" disabled={!supabaseReady || syncStatus === "syncing"} onClick={() => void createSharedGame()}>{syncStatus === "syncing" ? "正在创建…" : "手动创建游戏局"}</button>}
+            <button className="ui-button ui-button--secondary" onClick={() => { setSettingsOpen(false); leaveSharedGame(); }}>返回共享游戏列表</button>
+          </section>
           <section className="settings-section">
           <h3>显示设置</h3>
           <section className="language-setting">
@@ -2491,20 +2544,6 @@ export default function Prototype() {
             </div>
           </section>
           </section>
-          <section className="settings-section online-game-settings">
-            <h3>在线游戏</h3>
-            {sharedRoom ? (
-              <CloudRoomCard room={sharedRoom} participated join={() => { setSettingsOpen(false); setSharedRoomOpen(true); }} />
-            ) : (
-              <p>当前游戏还没有共享数据。产生公开游戏记录后会自动创建共享局。</p>
-            )}
-            {!sharedRoom && <button className="ui-button ui-button--secondary" disabled={!supabaseReady || syncStatus === "syncing"} onClick={() => void createSharedGame()}>{syncStatus === "syncing" ? "正在创建…" : "手动创建游戏局"}</button>}
-            <button className="ui-button ui-button--secondary" onClick={leaveSharedGame}>返回共享游戏列表</button>
-          </section>
-          <button className="settings-manual-link" onClick={() => { setSettingsOpen(false); setManualOpen(true); }}>
-            <img src={assetUrl("clocktower/feather.svg")} alt="" />
-            <span>{t("使用手册")}</span>
-          </button>
         </div>
       </BottomSheet>
       <BottomSheet
@@ -3563,12 +3602,18 @@ function CloudRoomCard({ room, participated, join }: { room: SharedRoom; partici
     if (event.reason === "revival") dead.delete(event.playerId); else dead.add(event.playerId);
   }
   const total = room.game_state.playerCount || 0;
+  const composition = room.game_state.composition;
+  const compositionText = composition
+    ? `${composition.镇民} · ${composition.外来者} · ${composition.爪牙} · ${composition.恶魔}`
+    : "";
   const winner = room.result?.winner === "good" ? "善良方胜利" : room.result?.winner === "evil" ? "邪恶方胜利" : "游戏结束";
-  const status = room.status === "finished" ? `已结束 · ${winner}` : `进行到第 ${room.game_state.day || 1} 天${total ? ` · 存活 ${Math.max(0, total - dead.size)}/${total} 人` : ""}`;
+  const status = room.status === "finished"
+    ? `已结束 · ${winner}`
+    : [`进行到第 ${room.game_state.day || 1} 天`, compositionText, total ? `存活 ${Math.max(0, total - dead.size)}/${total} 人` : ""].filter(Boolean).join(" | ");
   return (
     <button className="cloud-room-card" onClick={join}>
       <span className="cloud-room-card__top"><strong title={room.room_name}>{room.room_name || makeDefaultRoomName(room.game_type)}</strong>{participated && <em>本机参与</em>}</span>
-      <span className="cloud-room-card__meta"><b>{room.room_code}</b><span>{room.game_type} · {new Date(room.started_at || room.created_at).toLocaleString("zh-CN")}</span></span>
+      <span className="cloud-room-card__meta"><b>{room.room_code}</b><span>{room.game_type}</span></span>
       <span className="cloud-room-card__status">{status}</span>
     </button>
   );
@@ -3674,9 +3719,11 @@ function StartScreen({
         {startTab === "join" ? (
           <section className="cloud-lobby" aria-label="加入云端游戏">
             <div className="cloud-join-box">
-              <div><small>输入 7 位局号</small><h2>加入云端游戏</h2></div>
+              <div className="cloud-join-header">
+                <div><small>输入 7 位局号</small><h2>加入云端游戏</h2></div>
+                <button className="ui-button ui-button--primary" disabled={!sharedAvailable || !ROOM_CODE_PATTERN.test(roomCode)} onClick={() => void tryJoin(roomCode)}>加入云端游戏</button>
+              </div>
               <label><span className="sr-only">7 位局号</span><input value={roomCode} maxLength={7} inputMode="text" autoCapitalize="characters" placeholder="ABCDEFG" onChange={(event) => { setRoomCode(normaliseRoomCode(event.target.value)); setJoinError(""); }} /></label>
-              <button className="ui-button ui-button--primary" disabled={!sharedAvailable || !ROOM_CODE_PATTERN.test(roomCode)} onClick={() => void tryJoin(roomCode)}>加入云端游戏</button>
               {roomCode.length > 0 && roomCode.length < 7 && <p className="cloud-error">请输入完整的 7 位局号</p>}
               {joinError && <p className="cloud-error">{joinError}</p>}
             </div>
@@ -3839,7 +3886,7 @@ function StartScreen({
         >
           <button
             aria-label={t("关闭")}
-            className="desktop-modal-close"
+            className="desktop-modal-close settings-panel-close"
             onClick={() => setSettingsOpen(false)}
           >
             <Cross2Icon />
@@ -3862,10 +3909,6 @@ function StartScreen({
                 </button>
               </div>
             </section>
-            <button className="settings-manual-link" onClick={() => { setSettingsOpen(false); setManualOpen(true); }}>
-              <img src={assetUrl("clocktower/feather.svg")} alt="" />
-              <span>{t("使用手册")}</span>
-            </button>
           </div>
         </BottomSheet>
       </main>

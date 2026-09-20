@@ -266,6 +266,40 @@
   stroke-dasharray: 5 4;
 }
 
+@media (max-width: 1023px) {
+  .bottom-sheet:has(.settings-panel-close) .sheet-header {
+    padding-right: 62px;
+    touch-action: none;
+    cursor: grab;
+    user-select: none;
+  }
+
+  .bottom-sheet:has(.settings-panel-close) .sheet-header:active {
+    cursor: grabbing;
+  }
+
+  .settings-panel-close {
+    position: absolute;
+    z-index: 12;
+    top: 32px;
+    right: 18px;
+    display: grid;
+    width: 34px;
+    height: 34px;
+    place-items: center;
+    padding: 0;
+    border: 1px solid rgba(92, 64, 43, 0.22);
+    border-radius: 9px;
+    background: #f8efe0;
+    color: #624535;
+  }
+
+  .settings-panel-close svg {
+    width: 18px;
+    height: 18px;
+  }
+}
+
 /* Mobile sheets use the browser viewport rather than the app's scroll
    container. This prevents Safari from leaving a half-height sheet/dimmer
    behind after a note is saved and closed. */
@@ -4513,6 +4547,9 @@ body,
 .cloud-lobby { display:grid; grid-template-columns:minmax(270px,360px) minmax(0,1fr); gap:18px; min-height:0; margin:0 28px 26px; }
 .cloud-join-box,.cloud-room-list-heading,.cloud-room-list { border:1px solid #d3bb93; background:rgba(255,250,239,.78); }
 .cloud-join-box { align-self:start; display:grid; gap:13px; padding:20px; border-radius:16px; }
+.cloud-join-header { display:flex; align-items:center; justify-content:space-between; gap:14px; min-width:0; }
+.cloud-join-header > div { min-width:0; }
+.cloud-join-header .ui-button { flex:none; min-width:132px; min-height:44px; }
 .cloud-join-box small,.cloud-room-list-heading small { color:#a34842; font-weight:700; }
 .cloud-join-box h2,.cloud-room-list-heading h2 { margin:3px 0 0; color:#3d281e; }
 .cloud-join-box input { width:100%; min-height:50px; box-sizing:border-box; padding:0 15px; border:1px solid #b99668; border-radius:10px; background:#fff9eb; color:#542d27; font-size:20px; font-weight:800; letter-spacing:.2em; text-transform:uppercase; }
@@ -4555,7 +4592,7 @@ body,
   .new-game-flow .shared-game-entry { flex:none; position:relative; z-index:1; margin:0 0 14px; }
   .new-game-flow .start-layout { flex:1; overflow:hidden; }
   .start-mode-tabs { margin:0 14px 14px; }
-  .cloud-lobby { grid-template-columns:1fr; margin:0 14px 18px; }
+  .cloud-lobby { grid-template-columns:1fr; margin:0 0 18px; }
   .cloud-room-list-heading,.cloud-room-list { grid-column:1; }
   .cloud-room-list { max-height:none; margin-top:-19px; }
   .share-code-row { grid-template-columns:1fr auto auto; }.share-code-row b { grid-column:1/-1; }
