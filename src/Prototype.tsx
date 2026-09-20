@@ -1020,7 +1020,9 @@ export default function Prototype() {
       const room = await findRoom(normalised);
       if (!room) { setSyncStatus("failed"); setToast("没有找到这个局，请检查局号"); return "not_found"; }
       bindSharedRoom(room);
-      setStarted(room.status !== "waiting");
+      // Joining a room always opens its record view, including newly-created
+      // rooms that have not yet advanced beyond their initial cloud status.
+      setStarted(true);
       window.history.replaceState(null, "", makeRoomUrl(room.room_code));
       setToast(`已加入共享局 ${room.room_code}`);
       setSharedRoomOpen(false);
