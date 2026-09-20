@@ -161,6 +161,111 @@
   filter: grayscale(1);
 }
 
+@media (max-width: 699px) {
+  .target-relation-actions {
+    display: none;
+  }
+
+  .vote-dial-actions {
+    position: fixed;
+    z-index: 1000;
+    top: auto;
+    right: 8px;
+    bottom: calc(8px + env(safe-area-inset-bottom));
+    left: 8px;
+    min-height: 154px;
+    box-sizing: border-box;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 92px;
+    grid-template-areas:
+      "title title"
+      "choices choices"
+      "confirm cancel";
+    align-items: center;
+    justify-items: stretch;
+    gap: 8px;
+    padding: 14px;
+    border: 1px solid rgba(112, 76, 43, 0.32);
+    border-radius: 18px;
+    background: #fff9ed;
+    box-shadow: 0 -10px 32px rgba(55, 31, 18, 0.24);
+  }
+
+  .vote-action-title {
+    grid-area: title;
+    display: block;
+    color: #55382a;
+    font-size: 14px;
+    text-align: center;
+  }
+
+  .vote-relation-choices {
+    grid-area: choices;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+
+  .vote-relation-choices button {
+    min-height: 38px;
+    border-radius: 10px;
+    background: #fff;
+    font-size: 14px;
+    font-weight: 800;
+  }
+
+  .vote-relation-choices .good {
+    border: 1.5px solid #3c8b59;
+    color: #287046;
+  }
+
+  .vote-relation-choices .bad {
+    border: 1.5px solid #b53a3a;
+    color: #9f2727;
+  }
+
+  .vote-relation-choices .private {
+    border: 1.5px solid #85817b;
+    color: #66625d;
+  }
+
+  .vote-dial-confirm {
+    grid-area: confirm;
+    width: 100%;
+    min-height: 44px;
+    border-color: #8f2828;
+    border-radius: 11px;
+    background: #8f2828;
+    color: #fff;
+    font-size: 14px;
+  }
+
+  .vote-exit-button {
+    grid-area: cancel;
+    width: 100%;
+    height: 44px;
+    min-width: 0;
+    min-height: 44px;
+    border-radius: 11px;
+    box-shadow: none;
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .vote-exit-button svg {
+    display: none;
+  }
+
+  .vote-exit-button::after {
+    content: "取消";
+  }
+}
+
+.relation.private path {
+  stroke-width: 1px !important;
+  stroke-dasharray: 5 4;
+}
+
 /* Mobile sheets use the browser viewport rather than the app's scroll
    container. This prevents Safari from leaving a half-height sheet/dimmer
    behind after a note is saved and closed. */
@@ -2089,6 +2194,9 @@ button {
 .bad-text {
   color: var(--red);
 }
+.private-text {
+  color: #716d67;
+}
 .relation-insight {
   display: flex;
   flex-direction: column;
@@ -3037,6 +3145,10 @@ button {
   justify-items: end;
   gap: 7px;
 }
+.vote-action-title,
+.vote-relation-choices {
+  display: none;
+}
 .vote-exit-button {
   position: relative;
   z-index: 1;
@@ -3117,10 +3229,15 @@ button {
   border: 2px solid #b53a3a;
   color: #9f2727;
 }
+.target-relation-actions .private {
+  border: 2px solid #85817b;
+  color: #66625d;
+}
 
 /* Good/bad relationship lines are intentionally half the previous weight. */
 .relation.good path,
-.relation.bad path {
+.relation.bad path,
+.relation.private path {
   stroke-width: 1px !important;
 }
 .quick-ring {
@@ -4819,7 +4936,7 @@ body,
 }
 .relation-type-picks {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 8px;
 }
 .relation-type-picks button,
@@ -4844,6 +4961,11 @@ body,
   border-color: #a42c2c;
   background: #f3dddd;
   color: #8f2525;
+}
+.relation-type-picks button.active.private {
+  border-color: #85817b;
+  background: #e7e5e2;
+  color: #5f5b56;
 }
 .relation-endpoints {
   display: grid;

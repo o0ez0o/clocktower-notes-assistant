@@ -136,7 +136,7 @@ type Relation = {
   day: number;
   from: number;
   to: number;
-  type: "nominate" | "good" | "bad";
+  type: "nominate" | "good" | "bad" | "private";
   votes?: number[];
   executed?: boolean;
 };
@@ -1290,7 +1290,7 @@ export default function Prototype() {
       type === "nominate" &&
       (nominationSources.has(drag.from) || nominationTargets.has(drag.to))
     ) {
-      setToast("当天提名或被提名资格已使用，只能记录保或踩");
+      setToast("当天提名或被提名资格已使用，只能记录保、踩或私");
       return;
     }
     const executed = type === "nominate" && votes.length > livingCount / 2;
@@ -1355,6 +1355,8 @@ export default function Prototype() {
         ? "已记录保"
         : type === "bad"
           ? "已记录踩"
+          : type === "private"
+            ? "已记录私聊"
           : `已记录 ${votes.length} 票${executed ? " · 标记处决" : ""}`,
     );
     setDrag(null);
@@ -1687,6 +1689,17 @@ export default function Prototype() {
                   >
                     <path d="M0,0 L14.4,7.2 L0,14.4 z" fill="#a42c2c" />
                   </marker>
+                  <marker
+                    id="arrow-private"
+                    markerUnits="userSpaceOnUse"
+                    markerWidth="14.4"
+                    markerHeight="14.4"
+                    refX="13"
+                    refY="7.2"
+                    orient="auto"
+                  >
+                    <path d="M0,0 L14.4,7.2 L0,14.4 z" fill="#77736d" />
+                  </marker>
                 </defs>
                 {dragPreview && (
                   <path
@@ -1749,6 +1762,8 @@ export default function Prototype() {
                         ? "#2f8455"
                         : r.type === "bad"
                           ? "#a42c2c"
+                          : r.type === "private"
+                            ? "#77736d"
                           : "#211711";
                   return (
                     <g
@@ -1773,7 +1788,7 @@ export default function Prototype() {
                       <path
                         d={`M ${sx} ${sy} Q ${cx} ${cy} ${ex} ${ey}`}
                         stroke={color}
-                        markerEnd={`url(#arrow-${r.type === "good" ? "good" : r.type === "bad" ? "bad" : "black"})`}
+                        markerEnd={`url(#arrow-${r.type === "good" ? "good" : r.type === "bad" ? "bad" : r.type === "private" ? "private" : "black"})`}
                       />
                       {r.type === "nominate" && (
                         <>
@@ -1815,6 +1830,14 @@ export default function Prototype() {
               </div>
               {drag && (
                 <div className="vote-dial-actions">
+                  <strong className="vote-action-title">
+                    {language === "zh" ? "玩家" : "Player"} {drag.from} → {language === "zh" ? "玩家" : "Player"} {drag.to}
+                  </strong>
+                  <div className="vote-relation-choices">
+                    <button className="good" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.preventDefault(); event.stopPropagation(); finish("good"); }}>{t("保")}</button>
+                    <button className="bad" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.preventDefault(); event.stopPropagation(); finish("bad"); }}>{t("踩")}</button>
+                    <button className="private" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.preventDefault(); event.stopPropagation(); finish("private"); }}>{t("私")}</button>
+                  </div>
                   <button
                     className="vote-exit-button"
                     aria-label={t("关闭")}
@@ -1936,6 +1959,17 @@ export default function Prototype() {
                           }}
                         >
                           {t("踩")}
+                        </button>
+                        <button
+                          className="private"
+                          onPointerDown={(event) => event.stopPropagation()}
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            finish("private");
+                          }}
+                        >
+                          {t("私")}
                         </button>
                       </div>
                     )}
@@ -2160,7 +2194,7 @@ export default function Prototype() {
         {relationDraft && (
           <div className="relation-editor">
             <div className="relation-type-picks">
-              {(["nominate", "good", "bad"] as const).map((type) => (
+              {(["nominate", "good", "bad", "private"] as const).map((type) => (
                 <button
                   key={type}
                   className={relationDraft.type === type ? `active ${type}` : type}
@@ -2172,7 +2206,7 @@ export default function Prototype() {
                     })
                   }
                 >
-                  {t(type === "nominate" ? "提名" : type === "good" ? "保" : "踩")}
+                  {t(type === "nominate" ? "提名" : type === "good" ? "保" : type === "bad" ? "踩" : "私")}
                 </button>
               ))}
             </div>
@@ -2304,12 +2338,12 @@ export default function Prototype() {
             </p>
             <p>
               {t(
-                "拖拽完成后可直接保、踩，或在圆盘上选择投票玩家并确认本轮。保与踩不消耗提名资格。",
+                "拖拽完成后可直接记录保、踩或私聊，或在圆盘上选择投票玩家并确认本轮。这些关系记录不消耗提名资格。",
               )}
             </p>
             <p>
               {t(
-                "移动端长按关系线、桌面端双击关系线，可修改或删除该条提名／保／踩记录。",
+                "移动端长按关系线、桌面端双击关系线，可修改或删除该条提名／保／踩／私聊记录。",
               )}
             </p>
           </section>
@@ -2959,6 +2993,14 @@ function Notes({
                               r.type === "bad",
                           )
                           .map((r) => r.to),
+                        privateChats = relations
+                          .filter(
+                            (r) =>
+                              r.day === recordDay &&
+                              r.type === "private" &&
+                              (r.from === p.id || r.to === p.id),
+                          )
+                          .map((r) => (r.from === p.id ? r.to : r.from)),
                         dayEvents = deaths.filter(
                           (event) =>
                             event.day === recordDay && event.playerId === p.id,
@@ -2985,6 +3027,9 @@ function Notes({
                             )}
                             {bad.length > 0 && (
                               <strong className="bad-text">{t("踩")} {bad.join("、")}</strong>
+                            )}
+                            {privateChats.length > 0 && (
+                              <strong className="private-text">{t("私")} {privateChats.join("、")}</strong>
                             )}
                             {dayEvents
                               .filter((event) => event.reason === "revival")
