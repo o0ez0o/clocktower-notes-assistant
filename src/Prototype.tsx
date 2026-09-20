@@ -2976,7 +2976,7 @@ export default function Prototype() {
                 setRolePlayer(null);
               }}
             >
-              {t("保存并关闭")}
+              {t("保存笔记")}
             </button>
           </div>
         </div>
