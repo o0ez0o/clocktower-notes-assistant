@@ -3606,12 +3606,12 @@ function CloudRoomCard({ room, participated, join }: { room: SharedRoom; partici
   const total = room.game_state.playerCount || 0;
   const composition = room.game_state.composition;
   const compositionText = composition
-    ? `${composition.镇民} · ${composition.外来者} · ${composition.爪牙} · ${composition.恶魔}`
+    ? `${composition.镇民}镇 ${composition.外来者}外 ${composition.爪牙}爪 ${composition.恶魔}魔`
     : "";
   const winner = room.result?.winner === "good" ? "善良方胜利" : room.result?.winner === "evil" ? "邪恶方胜利" : "游戏结束";
   const status = room.status === "finished"
     ? `已结束 · ${winner}`
-    : [`进行到第 ${room.game_state.day || 1} 天`, compositionText, total ? `存活 ${Math.max(0, total - dead.size)}/${total} 人` : ""].filter(Boolean).join(" | ");
+    : [`进行到第 ${room.game_state.day || 1} 天`, compositionText, total ? `存活 ${Math.max(0, total - dead.size)}/${total} 人` : ""].filter(Boolean).join(" · ");
   return (
     <button className="cloud-room-card" onClick={join}>
       <span className="cloud-room-card__top"><strong title={room.room_name}>{room.room_name || makeDefaultRoomName(room.game_type)}</strong>{participated && <em>本机参与</em>}</span>
