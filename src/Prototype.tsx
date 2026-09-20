@@ -148,11 +148,22 @@ type DeathEvent = {
   reason: "execution" | "manual" | "revival";
 };
 
-const roomNameSuffix = (room: Pick<SharedRoom, "room_name">) =>
-  room.room_name.match(/^\d{2}年\d{1,2}月\d{1,2} · (?:.+ · )?(.+)$/)?.[1]?.trim() || "1";
+const roomNameSuffix = (room: Pick<SharedRoom, "room_name" | "game_type">) => {
+  const datedName = room.room_name.match(/^\d{2}年\d{1,2}月\d{1,2} · (.+)$/)?.[1]?.trim();
+  if (!datedName) return "1";
+  const legacyBoardNames = [
+    room.game_type,
+    room.game_type.replace(/[（(].*?[）)]/g, "").replace(/局+$/, "").trim(),
+  ].filter(Boolean);
+  const legacyPrefix = legacyBoardNames.find((boardName) => datedName.startsWith(`${boardName} · `));
+  return (legacyPrefix ? datedName.slice(legacyPrefix.length + 3) : datedName).trim() || "1";
+};
 
 const displayedRoomName = (room: Pick<SharedRoom, "room_name" | "game_type" | "created_at">) =>
   makeDefaultRoomName(room.game_type, new Date(room.created_at), roomNameSuffix(room));
+
+const roomInvitation = (room: Pick<SharedRoom, "room_code" | "room_name" | "game_type" | "created_at">) =>
+  `${makeRoomUrl(room.room_code)}\n\n点击加入 ${displayedRoomName(room)} ${room.game_type}`;
 type ScriptBoard = {
   id: string;
   name: string;
@@ -1095,14 +1106,13 @@ export default function Prototype() {
   };
   const copyInvite = async () => {
     if (!sharedRoom) return;
-    const invitation = `${makeRoomUrl(sharedRoom.room_code)}\n\n点击加入 ${displayedRoomName(sharedRoom)} ${sharedRoom.game_type}`;
-    await navigator.clipboard?.writeText(invitation);
+    await navigator.clipboard?.writeText(roomInvitation(sharedRoom));
     setToast("邀请文案已复制");
   };
   const shareInvite = async () => {
     if (!sharedRoom) return;
     const shareUrl = makeRoomUrl(sharedRoom.room_code);
-    await navigator.clipboard?.writeText(shareUrl);
+    await navigator.clipboard?.writeText(roomInvitation(sharedRoom));
     if (navigator.share) {
       try { await navigator.share({ title: displayedRoomName(sharedRoom), text: `点击加入 ${displayedRoomName(sharedRoom)} ${sharedRoom.game_type}`, url: shareUrl }); setToast("邀请链接已复制并分享"); return; }
       catch { /* cancelled/native share unavailable: copied link remains */ }
