@@ -4359,6 +4359,8 @@ body,
 .shared-game-entry small,.shared-game-entry b { display:block; }
 .shared-game-entry small { color:#8f302e; font-size:12px; margin-bottom:3px; }
 .shared-game-entry b { font-size:14px; }
+.shared-game-entry span { display:block; margin-top:4px; color:#806b5b; font-size:12px; }
+.shared-game-entry--created { border-color:#9b5a48; background:rgba(255,247,230,.9); }
 .shared-room-strip { display:flex; align-items:center; justify-content:flex-end; gap:8px; margin:0 20px 8px; color:#735443; font-size:12px; }
 .shared-room-strip b { letter-spacing:.12em; color:#792321; }
 .shared-room-strip button { border:1px solid #cdb389; border-radius:7px; background:#fff7e6; color:#6a382c; padding:4px 8px; font:inherit; }

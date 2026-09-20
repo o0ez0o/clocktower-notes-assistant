@@ -960,9 +960,11 @@ export default function Prototype() {
       window.history.replaceState(null, "", roomUrl);
       setToast(`共享局 ${room.room_code} 已创建`);
       setSharedRoomOpen(false);
+      return room;
     } catch (error) {
       setSyncStatus("failed");
       setToast(error instanceof Error && error.message === "SUPABASE_NOT_CONFIGURED" ? "尚未配置 Supabase，无法创建共享局" : "创建共享局失败，请稍后重试");
+      return null;
     }
   };
   const joinSharedGame = async (code: string): Promise<"joined" | "invalid" | "not_found" | "unavailable" | "failed"> => {
@@ -1503,6 +1505,8 @@ export default function Prototype() {
         joinSharedGame={joinSharedGame}
         recentRooms={recentRooms}
         sharedAvailable={supabaseReady}
+        sharedRoom={sharedRoom}
+        copySharedRoomCode={copyRoomCode}
       />
     );
   return (
@@ -3528,6 +3532,8 @@ function StartScreen({
   joinSharedGame,
   recentRooms,
   sharedAvailable,
+  sharedRoom,
+  copySharedRoomCode,
 }: {
   language: Language;
   setLanguage: (v: Language) => void;
@@ -3544,10 +3550,12 @@ function StartScreen({
   setSettingsOpen: (v: boolean) => void;
   manualOpen: boolean;
   setManualOpen: (v: boolean) => void;
-  createSharedGame: () => void;
+  createSharedGame: () => Promise<SharedRoom | null>;
   joinSharedGame: (code: string) => Promise<"joined" | "invalid" | "not_found" | "unavailable" | "failed">;
   recentRooms: RecentRoom[];
   sharedAvailable: boolean;
+  sharedRoom: SharedRoom | null;
+  copySharedRoomCode: () => Promise<void>;
 }) {
   const t = (text: string) => translate(language, text);
   const [previewBoard, setPreviewBoard] = useState<ScriptBoard | null>(null);
@@ -3559,6 +3567,8 @@ function StartScreen({
   const [cloudLoading, setCloudLoading] = useState(true);
   const [cloudError, setCloudError] = useState(false);
   const [joinError, setJoinError] = useState("");
+  const [createdRoom, setCreatedRoom] = useState<SharedRoom | null>(null);
+  const [creatingRoom, setCreatingRoom] = useState(false);
   useEffect(() => {
     if (startTab !== "join" || !sharedAvailable) return;
     let active = true;
@@ -3583,6 +3593,14 @@ function StartScreen({
       .includes(boardQuery.trim().toLocaleLowerCase()),
   );
   const total = Object.values(composition).reduce((a, b) => a + b, 0);
+  const visibleSharedRoom = sharedRoom || createdRoom;
+  const handleCreateSharedGame = async () => {
+    if (creatingRoom) return;
+    setCreatingRoom(true);
+    const room = await createSharedGame();
+    if (room) setCreatedRoom(room);
+    setCreatingRoom(false);
+  };
   return (
     <WebPage>
       <main className="clock-app start-screen" data-setup-step={setupStep}>
@@ -3622,9 +3640,12 @@ function StartScreen({
             </div>
           </section>
         ) : (<div className="new-game-flow">
-        <section className="shared-game-entry" aria-label="创建共享游戏局">
-          <div><small>可选</small><b>先创建共享局，再按原有流程选择板子和人数</b></div>
-          <button className="ui-button ui-button--secondary" disabled={!sharedAvailable} onClick={createSharedGame}>创建云端共享局</button>
+        <section className={`shared-game-entry${visibleSharedRoom ? " shared-game-entry--created" : ""}`} aria-label="创建共享游戏局">
+          {visibleSharedRoom ? (
+            <><div><small>共享局已创建</small><b>{visibleSharedRoom.room_name}</b><span>局号 {visibleSharedRoom.room_code} · 可继续按原流程选择板子和人数</span></div><button className="ui-button ui-button--primary" onClick={() => void copySharedRoomCode()}>复制局号</button></>
+          ) : (
+            <><div><small>可选</small><b>先创建共享局，再按原有流程选择板子和人数</b></div><button className="ui-button ui-button--secondary" disabled={!sharedAvailable || creatingRoom} onClick={() => void handleCreateSharedGame()}>{creatingRoom ? "正在创建…" : "创建云端共享局"}</button></>
+          )}
         </section>
         <div className="start-layout">
         <section className="setup-card board-setup">
