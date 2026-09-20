@@ -31,6 +31,7 @@ import {
   findRoom,
   listRooms,
   makeDefaultRoomName,
+  makeRoomNamePrefix,
   makeRoomUrl,
   normaliseRoomCode,
   truncateChars,
@@ -146,6 +147,9 @@ type DeathEvent = {
   playerId: number;
   reason: "execution" | "manual" | "revival";
 };
+
+const roomNameSuffix = (room: Pick<SharedRoom, "room_name">) =>
+  room.room_name.match(/^\d{2}年\d{1,2}月\d{1,2} · .+ · (.+)$/)?.[1]?.trim() || "1";
 type ScriptBoard = {
   id: string;
   name: string;
@@ -973,7 +977,7 @@ export default function Prototype() {
     if (room.game_state.boardId && boards.some((board) => board.id === room.game_state.boardId)) setSelectedBoardId(room.game_state.boardId);
     if (room.game_state.composition) setComposition(room.game_state.composition);
     if (room.game_state.playerCount) setPlayers((current) => current.length === room.game_state.playerCount ? current : createPlayers(room.game_state.playerCount || 12));
-    setRoomNameDraft(room.room_name || makeDefaultRoomName(room.game_type));
+    setRoomNameDraft(roomNameSuffix(room));
     setSyncStatus("synced");
     rememberRoom(room);
     setRecentRooms(readRecentRooms());
@@ -988,7 +992,7 @@ export default function Prototype() {
     } catch { /* a corrupt local cache must not prevent joining */ }
     sharedRoomRef.current = null;
     applySharedRoom(room);
-    setRoomNameDraft(room.room_name || makeDefaultRoomName(room.game_type));
+    setRoomNameDraft(roomNameSuffix(room));
     unsubscribeSharedRoom.current = subscribeRoom(room, applySharedRoom, setOnlineCount);
   };
   const createSharedGame = async () => {
@@ -996,7 +1000,20 @@ export default function Prototype() {
       setSyncStatus("syncing");
       // No event, vote, execution or death from the prior game is reused.
       const emptyState: SharedGameState = { day: 1, phase: "setup", nominations: [], deaths: [], peacefulDays: [], publicAnnouncements: [], gameEvents: [], boardId: selectedBoardId, composition, playerCount: Object.values(composition).reduce((sum, count) => sum + count, 0) };
-      const room = await createRoom(currentBoard?.name || "未命名板子", emptyState);
+      const boardName = currentBoard?.name || "未命名板子";
+      const now = new Date();
+      let ordinal = 1;
+      try {
+        const rooms = await listRooms();
+        ordinal += rooms.filter((candidate) => {
+          const created = new Date(candidate.created_at);
+          return candidate.game_type === boardName &&
+            created.getFullYear() === now.getFullYear() &&
+            created.getMonth() === now.getMonth() &&
+            created.getDate() === now.getDate();
+        }).length;
+      } catch { /* room creation remains available if the list endpoint is unavailable */ }
+      const room = await createRoom(boardName, emptyState, makeDefaultRoomName(boardName, now, String(ordinal)));
       unsubscribeSharedRoom.current?.();
       setRelations([]); setDeaths([]); setPeacefulDays([]); setDay(1); setMaxDay(1);
       bindSharedRoom(room);
@@ -1051,13 +1068,13 @@ export default function Prototype() {
   const saveRoomName = async () => {
     const room = sharedRoomRef.current;
     if (!room) return;
-    const nextName = truncateChars(roomNameDraft.trim() || makeDefaultRoomName(room.game_type), 30);
+    const nextName = makeDefaultRoomName(room.game_type, new Date(room.created_at), roomNameDraft);
     if (nextName === room.room_name) return;
     try {
       setSyncStatus("syncing");
       const updated = await updateRoom(room, { room_name: nextName });
       if (!updated) throw new Error("REVISION_CONFLICT");
-      sharedRoomRef.current = updated; setSharedRoom(updated); setRoomNameDraft(updated.room_name);
+      sharedRoomRef.current = updated; setSharedRoom(updated); setRoomNameDraft(roomNameSuffix(updated));
       rememberRoom(updated); setRecentRooms(readRecentRooms()); setSyncStatus("synced"); setToast("本局局名已保存");
     } catch { setSyncStatus("failed"); setToast("同步失败，请重试"); }
   };
@@ -1068,7 +1085,7 @@ export default function Prototype() {
   };
   const copyInvite = async () => {
     if (!sharedRoom) return;
-    const invitation = `${makeRoomUrl(sharedRoom.room_code)}\n\n点击加入当前血染钟楼“${sharedRoom.room_name}”，共享本局游戏记录`;
+    const invitation = `${makeRoomUrl(sharedRoom.room_code)}\n\n点击加入 ${sharedRoom.room_name}`;
     await navigator.clipboard?.writeText(invitation);
     setToast("邀请文案已复制");
   };
@@ -2498,7 +2515,16 @@ export default function Prototype() {
         </button>
         <div className="display-settings">
           <section className="settings-section online-game-settings">
-            <h3>在线游戏</h3>
+            <div className="online-game-heading">
+              <h3>在线游戏</h3>
+              {sharedRoom && (
+                <div className="online-game-quick-actions">
+                  <button aria-label="复制局号" onClick={() => void copyRoomCode()}>{sharedRoom.room_code}</button>
+                  <button aria-label="复制邀请文案" onClick={() => void copyInvite()}><Link2Icon /></button>
+                  <button aria-label="分享此局" onClick={() => void shareInvite()}><Share1Icon /></button>
+                </div>
+              )}
+            </div>
             {sharedRoom ? (
               <CloudRoomCard room={sharedRoom} participated join={() => { setSettingsOpen(false); setSharedRoomOpen(true); }} />
             ) : (
@@ -2853,11 +2879,18 @@ export default function Prototype() {
               </section>
               <section className="room-name-editor">
                 <label htmlFor="shared-room-name">本局局名</label>
-                <div>
-                  <input id="shared-room-name" value={roomNameDraft} onChange={(event) => setRoomNameDraft(truncateChars(event.target.value, 30))} onKeyDown={(event) => { if (event.key === "Enter") void saveRoomName(); }} />
-                  <span>{[...roomNameDraft].length}/30</span>
+                <div className="room-name-field">
+                  <b>{makeRoomNamePrefix(sharedRoom.game_type, new Date(sharedRoom.created_at))}</b>
+                  <input
+                    id="shared-room-name"
+                    value={roomNameDraft}
+                    maxLength={Math.max(1, 30 - [...makeRoomNamePrefix(sharedRoom.game_type, new Date(sharedRoom.created_at))].length)}
+                    onChange={(event) => setRoomNameDraft(truncateChars(event.target.value, Math.max(1, 30 - [...makeRoomNamePrefix(sharedRoom.game_type, new Date(sharedRoom.created_at))].length)))}
+                    onKeyDown={(event) => { if (event.key === "Enter") void saveRoomName(); }}
+                  />
+                  <span>{[...roomNameDraft].length}/{Math.max(1, 30 - [...makeRoomNamePrefix(sharedRoom.game_type, new Date(sharedRoom.created_at))].length)}</span>
                 </div>
-                <button className="ui-button ui-button--secondary" disabled={(roomNameDraft.trim() || makeDefaultRoomName(sharedRoom.game_type)) === sharedRoom.room_name} onClick={() => void saveRoomName()}>保存</button>
+                <button className="ui-button ui-button--secondary" disabled={makeDefaultRoomName(sharedRoom.game_type, new Date(sharedRoom.created_at), roomNameDraft) === sharedRoom.room_name} onClick={() => void saveRoomName()}>保存</button>
               </section>
               <section className="share-room-actions">
                 <h3>分享此局</h3>

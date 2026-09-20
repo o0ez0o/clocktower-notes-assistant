@@ -44,14 +44,17 @@ export function createRoomCode() {
   return [...bytes].map((byte) => alphabet[byte % alphabet.length]).join("");
 }
 export function truncateChars(value: string, maximum = 30) { return [...value].slice(0, maximum).join(""); }
-export function makeDefaultRoomName(boardName: string, now = new Date()) {
+export function makeRoomNamePrefix(boardName: string, now = new Date()) {
   const board = boardName.replace(/[（(].*?[）)]/g, "").replace(/局+$/, "").trim() || "未命名";
-  const prefix = `${now.getMonth() + 1}月${now.getDate()}日 · ${String(now.getFullYear()).slice(-2)}年 · `;
-  const available = Math.max(1, 29 - [...prefix].length);
-  return truncateChars(`${prefix}${truncateChars(board, available)}局`, 30);
+  return `${String(now.getFullYear()).slice(-2)}年${now.getMonth() + 1}月${now.getDate()} · ${board} · `;
+}
+export function makeDefaultRoomName(boardName: string, now = new Date(), suffix = "1") {
+  const prefix = makeRoomNamePrefix(boardName, now);
+  const available = Math.max(1, 30 - [...prefix].length);
+  return `${prefix}${truncateChars(suffix.trim() || "1", available)}`;
 }
 export function makeRoomUrl(code: string) {
-  const target = new URL(window.location.href); target.searchParams.set("room", normaliseRoomCode(code)); target.hash = ""; return target.toString();
+  const target = new URL(window.location.href); target.search = ""; target.searchParams.set("room", normaliseRoomCode(code)); target.hash = ""; return target.toString();
 }
 
 export async function findRoom(code: string): Promise<SharedRoom | null> {
@@ -64,11 +67,11 @@ export async function listRooms(): Promise<SharedRoom[]> {
   const rows = await request<SharedRoom[]>("rpc/list_shared_game_rooms", { method: "POST", body: "{}" });
   return rows.slice(0, 100);
 }
-export async function createRoom(gameType: string, state: SharedGameState): Promise<SharedRoom> {
+export async function createRoom(gameType: string, state: SharedGameState, roomName = makeDefaultRoomName(gameType)): Promise<SharedRoom> {
   for (let attempt = 0; attempt < 6; attempt += 1) {
     const roomCode = createRoomCode();
     try {
-      const created = await request<SharedRoom[]>("game_rooms", { method: "POST", headers: headers("return=representation", roomCode), body: JSON.stringify({ room_code: roomCode, room_name: makeDefaultRoomName(gameType), game_type: gameType, status: "waiting", game_state: state, revision: 0 }) }, roomCode);
+      const created = await request<SharedRoom[]>("game_rooms", { method: "POST", headers: headers("return=representation", roomCode), body: JSON.stringify({ room_code: roomCode, room_name: roomName, game_type: gameType, status: "waiting", game_state: state, revision: 0 }) }, roomCode);
       return created[0];
     } catch (error) { if (attempt === 5) throw error; }
   }

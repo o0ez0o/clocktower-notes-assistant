@@ -3271,6 +3271,12 @@ button {
 .display-settings .settings-section > h3 { margin:0 0 6px; color:#7f2527; font-size:16px; }
 .display-settings .settings-section > section { padding:12px 0; }
 .display-settings .online-game-settings { gap:10px; }
+.online-game-heading { display:flex !important; grid-template-columns:none !important; align-items:center; justify-content:space-between; gap:10px; margin:0 !important; }
+.online-game-heading h3 { margin:0; color:#7f2527; font-size:16px; }
+.online-game-quick-actions { display:flex !important; grid-template-columns:none !important; align-items:center; justify-content:flex-end; gap:6px !important; margin:0 !important; }
+.display-settings .online-game-quick-actions button { width:36px; min-width:36px; height:34px; padding:0; display:grid; place-items:center; }
+.display-settings .online-game-quick-actions button:first-child { width:auto; min-width:84px; padding:0 9px; color:#842727; font-size:11px; font-weight:800; letter-spacing:.1em; }
+.online-game-quick-actions svg { width:16px; height:16px; }
 .display-settings .online-game-settings > p { margin:0; padding:12px; border-radius:10px; background:#f7efe1; color:#806b5b; font-size:12px; line-height:1.55; }
 .display-settings .online-game-settings .cloud-room-card { height:auto; min-height:112px; margin:0; padding:13px 14px; }
 .display-settings .online-game-settings > .ui-button { width:100%; min-height:44px; height:auto; }
@@ -4812,7 +4818,10 @@ body,
 .room-name-editor { display:grid; grid-template-columns:1fr auto; gap:9px; }
 .room-name-editor label,.share-room-actions h3 { grid-column:1/-1; margin:0; color:#5a3e30; font-size:13px; font-weight:800; }
 .room-name-editor > div { position:relative; }
+.room-name-field { min-height:46px; display:flex; align-items:center; gap:2px; box-sizing:border-box; padding:0 58px 0 13px; border:1px solid #c8aa7c; border-radius:9px; background:#fff9ed; overflow:hidden; }
+.room-name-field > b { flex:none; color:#6d5546; font-size:13px; white-space:nowrap; }
 .room-name-editor input { width:100%; min-height:46px; box-sizing:border-box; padding:0 58px 0 13px; border:1px solid #c8aa7c; border-radius:9px; background:#fff9ed; font:inherit; }
+.room-name-editor .room-name-field input { flex:1; min-width:36px; width:auto; min-height:40px; padding:0 2px; border:0; border-radius:0; background:transparent; font-weight:800; outline:none; }
 .room-name-editor > div span { position:absolute; right:12px; top:50%; transform:translateY(-50%); color:#9a887b; font-size:11px; }
 .room-name-editor button { min-width:84px; }
 .share-room-actions { display:grid; gap:9px; }
