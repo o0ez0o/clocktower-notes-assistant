@@ -3290,11 +3290,20 @@ button {
 .shared-game-editor { display:grid; gap:18px; padding:4px 0 14px; }
 .shared-game-editor > label { display:grid; gap:7px; color:#5a4032; font-weight:800; }
 .shared-game-editor select { width:100%; min-height:46px; padding:0 12px; border:1px solid #c8aa7c; border-radius:9px; background:#fff9ed; color:#503629; font:inherit; }
+.shared-board-picker-trigger { width:100%; min-height:58px; display:grid; grid-template-columns:minmax(0, 1fr) auto 18px; align-items:center; gap:10px; padding:10px 12px; border:1px solid #c8aa7c; border-radius:10px; background:#fff9ed; color:#503629; text-align:left; }
+.shared-board-picker-trigger b { overflow:hidden; font-size:15px; text-overflow:ellipsis; white-space:nowrap; }
+.shared-board-picker-trigger span { color:#8a7464; font-size:12px; font-weight:500; }
+.shared-board-picker-trigger svg { width:18px; height:18px; }
 .shared-game-editor > section { display:grid; gap:10px; color:#5a4032; }
 .shared-composition-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
 .shared-composition-grid > div { display:grid; grid-template-columns:1fr 34px 28px 34px; align-items:center; gap:4px; padding:9px; border:1px solid #dcc7a5; border-radius:10px; background:#fff9ed; }
 .shared-composition-grid button { width:34px; height:34px; padding:0; border:1px solid #c8aa7c; border-radius:8px; background:#f8ecd7; color:#7f2527; }
 .shared-composition-grid b { text-align:center; }
+.shared-game-editor-actions { display:grid; grid-template-columns:1fr 1.55fr; gap:10px; }
+.shared-game-editor-actions .ui-button { width:100%; min-height:48px; }
+.shared-board-picker { min-height:0; height:100%; display:grid; grid-template-rows:minmax(0, 1fr) auto; gap:12px; padding:2px 0 12px; }
+.shared-board-picker-list { min-height:0; overflow-y:auto; overscroll-behavior:contain; padding:2px 4px 8px; }
+.shared-board-picker > .ui-button { width:100%; min-height:48px; }
 .player-node.active {
   z-index: 500;
 }

@@ -776,6 +776,8 @@ export default function Prototype() {
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
   const [sharedRoomOpen, setSharedRoomOpen] = useState(false);
   const [sharedEditOpen, setSharedEditOpen] = useState(false);
+  const [sharedBoardPickerOpen, setSharedBoardPickerOpen] = useState(false);
+  const [sharedBoardPreview, setSharedBoardPreview] = useState<ScriptBoard | null>(null);
   const [sharedBoardDraft, setSharedBoardDraft] = useState(selectedBoardId);
   const [sharedCompositionDraft, setSharedCompositionDraft] = useState<Composition>(composition);
   const [onlineCount, setOnlineCount] = useState(0);
@@ -831,12 +833,12 @@ export default function Prototype() {
       notePlayer !== null ||
       relationDraft !== null ||
       deathDecisionPlayer !== null ||
-      notes || sharedEditOpen;
+      notes || sharedEditOpen || sharedBoardPickerOpen || sharedBoardPreview !== null;
     document.documentElement.dataset.desktopModal = active ? "true" : "false";
     return () => {
       delete document.documentElement.dataset.desktopModal;
     };
-  }, [board, settingsOpen, manualOpen, rolePlayer, notePlayer, relationDraft, deathDecisionPlayer, notes, sharedEditOpen]);
+  }, [board, settingsOpen, manualOpen, rolePlayer, notePlayer, relationDraft, deathDecisionPlayer, notes, sharedEditOpen, sharedBoardPickerOpen, sharedBoardPreview]);
   useEffect(() => {
     if (!settingsOpen) return;
     let cleanup = () => {};
@@ -2709,11 +2711,16 @@ export default function Prototype() {
       >
         <button aria-label={t("关闭")} className="desktop-modal-close" onClick={() => setSharedEditOpen(false)}><Cross2Icon /></button>
         <div className="shared-game-editor">
-          <label>
+          <label className="shared-board-field">
             <span>游戏板子</span>
-            <select value={sharedBoardDraft} onChange={(event) => setSharedBoardDraft(event.target.value)}>
-              {boards.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-            </select>
+            <button
+              className="shared-board-picker-trigger"
+              onClick={() => { setSharedEditOpen(false); setSharedBoardPickerOpen(true); }}
+            >
+              <b>{boards.find((item) => item.id === sharedBoardDraft)?.name || "选择板子"}</b>
+              <span>点击选择</span>
+              <ArrowRightIcon />
+            </button>
           </label>
           <section>
             <b>人数配置</b>
@@ -2728,9 +2735,39 @@ export default function Prototype() {
               ))}
             </div>
           </section>
-          <button className="ui-button ui-button--primary" onClick={() => void saveSharedGameEditor()}>确定并保存</button>
+          <div className="shared-game-editor-actions">
+            <button className="ui-button ui-button--secondary" onClick={() => { setSharedEditOpen(false); setSettingsOpen(true); }}>取消</button>
+            <button className="ui-button ui-button--primary" onClick={() => void saveSharedGameEditor()}>确定并保存</button>
+          </div>
         </div>
       </BottomSheet>
+      <BottomSheet
+        open={sharedBoardPickerOpen}
+        onOpenChange={(open) => { setSharedBoardPickerOpen(open); if (!open) setSharedEditOpen(true); }}
+        title="选择板子"
+        description="与开始新游戏使用同一个板子库"
+        snap={0.82}
+      >
+        <button aria-label={t("关闭")} className="desktop-modal-close" onClick={() => { setSharedBoardPickerOpen(false); setSharedEditOpen(true); }}><Cross2Icon /></button>
+        <div className="shared-board-picker">
+          <div className="script-list shared-board-picker-list" data-scroll-drag="ignore">
+            {boards.map((item) => (
+              <BoardCard
+                key={item.id}
+                board={item}
+                language={language}
+                selected={sharedBoardDraft === item.id}
+                select={() => { setSharedBoardDraft(item.id); setSharedBoardPickerOpen(false); setSharedEditOpen(true); }}
+                preview={() => setSharedBoardPreview(item)}
+              />
+            ))}
+          </div>
+          <button className="ui-button ui-button--secondary" onClick={() => { setSharedBoardPickerOpen(false); setSharedEditOpen(true); }}>取消</button>
+        </div>
+      </BottomSheet>
+      {sharedBoardPreview && (
+        <BoardPreviewModal board={sharedBoardPreview} language={language} close={() => setSharedBoardPreview(null)} />
+      )}
       <BottomSheet
         open={rolePlayer !== null}
         onOpenChange={(o) => {
