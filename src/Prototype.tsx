@@ -137,6 +137,20 @@ type RoleRecord = {
   roleId?: string;
   playerId?: number;
   text: string;
+  actions?: RoleAction[];
+};
+type RoleAction = {
+  id: number;
+  day: number;
+  targets: number[];
+  value: string;
+  detail: string;
+};
+type RoleActionPattern = {
+  kind: "yesno" | "number" | "role" | "text" | "target";
+  targetCount: 0 | 1 | 2;
+  prompt: string;
+  valueLabel: string;
 };
 type Relation = {
   id: number;
@@ -664,6 +678,34 @@ const createPlayers = (count: number): Player[] =>
     marks: [],
     notes: {},
   }));
+const actionPatternForRole = (role: Role): RoleActionPattern => {
+  const ability = role.abilityZh || "";
+  if (role.id === "fortuneteller") return { kind: "yesno", targetCount: 2, prompt: "选择本夜查验的两名玩家", valueLabel: "是否有恶魔" };
+  if (role.id === "chef") return { kind: "number", targetCount: 0, prompt: "记录首夜得到的信息", valueLabel: "相邻邪恶玩家对数" };
+  if (role.id === "artist") return { kind: "yesno", targetCount: 0, prompt: "记录向说书人提出的问题", valueLabel: "说书人回答" };
+  const targetCount: 0 | 1 | 2 = /选择.{0,8}(两|2)名玩家/.test(ability) ? 2 : /选择.{0,8}(一|1)名玩家|选择一名|选择1名/.test(ability) ? 1 : 0;
+  if (/多少|数量|几名|几对|距离/.test(ability)) return { kind: "number", targetCount, prompt: "记录本次获得的数字信息", valueLabel: "得到数字" };
+  if (/角色/.test(ability) && /得知|获知|知道/.test(ability)) return { kind: "role", targetCount: Math.max(1, targetCount) as 1 | 2, prompt: "记录查验目标与得知的角色", valueLabel: "得知角色" };
+  if (/是否|是非|为善良|为邪恶|同一阵营|恶魔/.test(ability) && /得知|获知|知道/.test(ability)) return { kind: "yesno", targetCount, prompt: "记录本次查验及结果", valueLabel: "查验结果" };
+  if (targetCount) return { kind: "target", targetCount, prompt: "记录本次能力选择与结果", valueLabel: "结果" };
+  return { kind: "text", targetCount: 0, prompt: "记录本次能力、公开行动或获得的信息", valueLabel: "行动记录" };
+};
+const roleActionConclusion = (role: Role, action: RoleAction, players: Player[]) => {
+  const targetText = action.targets.map((id) => {
+    const player = players.find((item) => item.id === id);
+    return `${id}号${player?.role?.zh || "玩家"}`;
+  }).join("、");
+  if (role.id === "fortuneteller") return action.value === "是"
+    ? `${targetText || "所选玩家"}中至少一名是恶魔或红鲱鱼。`
+    : `${targetText || "所选玩家"}均未被查验为恶魔。`;
+  if (role.id === "chef") return `场上有 ${action.value || "0"} 对相邻的邪恶玩家。`;
+  if (role.id === "artist") return `艺术家提问“${action.detail || "未填写问题"}”，说书人的回答是“${action.value || "未填写"}”。`;
+  const pattern = actionPatternForRole(role);
+  if (pattern.kind === "number") return `${role.zh}获得数字 ${action.value || "未填写"}${targetText ? `，关联${targetText}` : ""}。`;
+  if (pattern.kind === "yesno") return `${role.zh}${targetText ? `查验${targetText}` : "获得信息"}，结果为“${action.value || "未填写"}”。`;
+  if (pattern.kind === "role") return `${role.zh}查验${targetText || "目标"}，得知角色为“${action.value || "未填写"}”。`;
+  return `${role.zh}${targetText ? `选择${targetText}` : "进行了能力行动"}${action.value ? `，结果：${action.value}` : ""}${action.detail ? `；${action.detail}` : ""}。`;
+};
 const localizedToast = (language: Language, value: string) =>
   language === "zh"
     ? value
@@ -799,6 +841,7 @@ export default function Prototype() {
     { id: 3, day: 1, from: 11, to: 4, type: "bad" },
   ]);
   const [sharedRoom, setSharedRoom] = useState<SharedRoom | null>(null);
+  const [officialRoleText, setOfficialRoleText] = useState<Record<string, { ability?: string }>>({});
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
   const [sharedRoomOpen, setSharedRoomOpen] = useState(false);
   const [sharedEditOpen, setSharedEditOpen] = useState(false);
@@ -828,6 +871,12 @@ export default function Prototype() {
     () => localStorage.setItem("clocktower-role-records", JSON.stringify(roleRecords)),
     [roleRecords],
   );
+  useEffect(() => {
+    fetch(assetUrl("clocktower/official-roles-zh.json"))
+      .then((response) => response.json())
+      .then((data: { roles?: Record<string, { ability?: string }> }) => setOfficialRoleText(data.roles || {}))
+      .catch(() => undefined);
+  }, []);
   useEffect(
     () =>
       localStorage.setItem(
@@ -975,7 +1024,9 @@ export default function Prototype() {
   }, [notePlayer]);
   const currentBoard =
     boards.find((b) => b.id === selectedBoardId) || boards[0];
-  const boardRoles = roles.filter((r) => currentBoard?.roleIds.includes(r.id));
+  const boardRoles = roles
+    .filter((r) => currentBoard?.roleIds.includes(r.id))
+    .map((role) => role.abilityZh || !officialRoleText[role.id]?.ability ? role : { ...role, abilityZh: officialRoleText[role.id].ability });
   const groups = useMemo(
     () => ({
       镇民: boardRoles.filter((r) => r.team === "镇民"),
@@ -983,7 +1034,7 @@ export default function Prototype() {
       爪牙: boardRoles.filter((r) => r.team === "爪牙"),
       恶魔: boardRoles.filter((r) => r.team === "恶魔"),
     }),
-    [currentBoard?.id, currentBoard?.roleIds.join(",")],
+    [currentBoard?.id, currentBoard?.roleIds.join(","), officialRoleText],
   );
   const sharedState = (): SharedGameState => ({
     day,
@@ -3261,10 +3312,35 @@ function Notes({
                   {player && <em>{t("已绑定玩家")} {player.id}{player.name ? ` · ${player.name}` : ""}</em>}
                   <button aria-label={t("删除")} onClick={() => setRoleRecords((records) => records.filter((item) => item.id !== record.id))}><TrashIcon /></button>
                 </div>
+                {role && (() => {
+                  const pattern = actionPatternForRole(role);
+                  const updateAction = (actionId: number, patch: Partial<RoleAction>) => setRoleRecords((records) => records.map((item) => item.id === record.id
+                    ? { ...item, actions: (item.actions || []).map((action) => action.id === actionId ? { ...action, ...patch } : action) }
+                    : item));
+                  return (
+                    <div className="smart-action-editor">
+                      <div className="smart-action-title"><span>{pattern.prompt}</span><button onClick={() => setRoleRecords((records) => records.map((item) => item.id === record.id ? { ...item, actions: [...(item.actions || []), { id: Date.now(), day, targets: [], value: pattern.kind === "yesno" ? "是" : pattern.kind === "number" ? "0" : "", detail: "" }] } : item))}><PlusIcon />{t("添加行动")}</button></div>
+                      {(record.actions || []).map((action) => (
+                        <section className="smart-action-card" key={action.id}>
+                          <div className="smart-action-row">
+                            <label>{t("天数")}<input type="number" min="1" value={action.day} onChange={(event) => updateAction(action.id, { day: Math.max(1, Number(event.target.value) || 1) })} /></label>
+                            {Array.from({ length: pattern.targetCount }, (_, index) => (
+                              <label key={index}>{t("目标")} {index + 1}<select value={action.targets[index] || ""} onChange={(event) => { const targets = [...action.targets]; targets[index] = Number(event.target.value); updateAction(action.id, { targets }); }}><option value="">—</option>{players.map((player) => <option value={player.id} key={player.id}>{player.id}{t("号玩家")}{player.role ? ` · ${player.role.zh}` : ""}</option>)}</select></label>
+                            ))}
+                            <label>{pattern.valueLabel}{pattern.kind === "yesno" ? <select value={action.value} onChange={(event) => updateAction(action.id, { value: event.target.value })}><option value="是">{t("是")}</option><option value="否">{t("否")}</option><option value="不确定">{t("不确定")}</option></select> : <input type={pattern.kind === "number" ? "number" : "text"} value={action.value} onChange={(event) => updateAction(action.id, { value: event.target.value })} />}</label>
+                          </div>
+                          {(pattern.kind === "text" || role.id === "artist" || pattern.kind === "target") && <label className="smart-action-detail">{role.id === "artist" ? t("提问内容") : t("补充记录")}<textarea value={action.detail} onChange={(event) => updateAction(action.id, { detail: event.target.value })} /></label>}
+                          <p className="smart-action-conclusion"><b>{t("结论")}</b>{roleActionConclusion(role, action, players)}</p>
+                          <button className="smart-action-delete" onClick={() => setRoleRecords((records) => records.map((item) => item.id === record.id ? { ...item, actions: (item.actions || []).filter((entry) => entry.id !== action.id) } : item))}>{t("删除本条")}</button>
+                        </section>
+                      ))}
+                    </div>
+                  );
+                })()}
                 <textarea
                   value={record.text}
                   disabled={!record.roleId}
-                  placeholder={record.roleId ? t("记录该角色的所有信息…") : t("请先选择角色")}
+                  placeholder={record.roleId ? t("其他补充信息…") : t("请先选择角色")}
                   onChange={(event) => setRoleRecords((records) => records.map((item) => item.id === record.id ? { ...item, text: event.target.value } : item))}
                 />
               </article>
@@ -3603,6 +3679,7 @@ function VoteNotes({
     new Set([
       day,
       ...players.flatMap((p) => Object.keys(p.notes).map(Number)),
+      ...roleRecords.flatMap((record) => (record.actions || []).map((action) => action.day)),
       ...relations.map((r) => r.day),
       ...deaths.map((d) => d.day),
       ...peacefulDays,
@@ -3621,7 +3698,9 @@ function VoteNotes({
               <img src={role.image} alt="" />
               <div>
                 <b>{language === "zh" ? role.zh : `${role.zh} (${role.en})`}{player ? ` · ${player.id}${t("号玩家")}` : ""}</b>
-                <p>{record.text || t("尚未填写记录")}</p>
+                {[...(record.actions || [])].sort((a, b) => a.day - b.day).map((action) => <p className="daily-smart-action" key={action.id}><em>{t("第")} {action.day} {t("天")}</em>{roleActionConclusion(role, action, players)}</p>)}
+                {record.text && <p>{record.text}</p>}
+                {!record.text && !(record.actions || []).length && <p>{t("尚未填写记录")}</p>}
               </div>
             </article>
           );
@@ -3667,7 +3746,12 @@ function VoteNotes({
             Boolean(player.role && firstNightInformationRoleIds.has(player.role.id)),
           dayPlayers = players.filter(
             (player) => hasOrganicDayRecord(player) || isFirstNightInfoReminder(player),
-          );
+          ),
+          dayRoleActions = roleRecords.flatMap((record) => {
+            const role = availableRoles.find((item) => item.id === record.roleId) || roles.find((item) => item.id === record.roleId);
+            const player = players.find((item) => item.id === record.playerId);
+            return role ? (record.actions || []).filter((action) => action.day === recordDay).map((action) => ({ record, role, player, action })) : [];
+          });
         return (
           <section className="vote-day-group" key={recordDay}>
             <div className="day-vote-header">
@@ -3693,6 +3777,17 @@ function VoteNotes({
                 <span>{t("平安夜")}</span>
               </button>
             </div>
+            {dayRoleActions.length > 0 && (
+              <div className="day-smart-actions">
+                <h4>{t("角色行动")}</h4>
+                {dayRoleActions.map(({ role, player, action }) => (
+                  <article key={action.id}>
+                    <img src={role.image} alt="" />
+                    <div><b>{player ? `${player.id}${t("号玩家")} · ` : ""}{role.zh}</b><p>{roleActionConclusion(role, action, players)}</p></div>
+                  </article>
+                ))}
+              </div>
+            )}
             <div className="daily-notes-section">
               <h4>{t("当天笔记")}</h4>
               {dayPlayers.length ? (

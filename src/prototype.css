@@ -4738,6 +4738,17 @@ body,
 .global-role-record-heading > button { width:34px; height:34px; display:grid; place-items:center; border:0; border-radius:8px; background:#f6e9d8; color:#8a2929; }
 .global-role-record textarea { width:100%; min-height:88px; resize:vertical; box-sizing:border-box; padding:10px; border:1px solid #d5bd98; border-radius:9px; background:#fffdf7; color:#4d382d; font:inherit; line-height:1.55; }
 .global-role-record textarea:disabled { opacity:.62; }
+.smart-action-editor { display:grid; gap:8px; }
+.smart-action-title { display:flex; align-items:center; justify-content:space-between; gap:10px; color:#725b49; font-size:11px; }
+.smart-action-title button { min-height:32px; display:inline-flex; align-items:center; gap:4px; padding:0 9px; border:1px solid #c9ad83; border-radius:8px; background:#f8ecd8; color:#7d2928; font-weight:800; }
+.smart-action-card { display:grid; gap:8px; padding:9px; border:1px solid #d6c09d; border-radius:9px; background:#f9f1e4; }
+.smart-action-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(112px,1fr)); gap:7px; }
+.smart-action-card label { display:grid; gap:4px; color:#715a49; font-size:10px; font-weight:700; }
+.smart-action-card input,.smart-action-card select { width:100%; min-width:0; height:36px; box-sizing:border-box; padding:0 8px; border:1px solid #cdb695; border-radius:7px; background:#fffaf0; color:#4f392e; }
+.global-role-record .smart-action-detail textarea { min-height:58px; resize:vertical; }
+.smart-action-conclusion { margin:0; padding:8px 9px; border-left:3px solid #7d2928; border-radius:5px; background:#f1e6d6; color:#5e493b; font-size:11px; line-height:1.5; }
+.smart-action-conclusion b { display:inline; margin-right:6px; color:#7d2928; }
+.smart-action-delete { justify-self:end; border:0; background:transparent; color:#916c58; font-size:10px; }
 .vote-notes { display:flex; flex-direction:column; gap:12px; }
 .vote-notes .daily-notes-section { display:none; }
 .vote-notes .relation-insight { order:99; margin-top:8px; }
@@ -4748,6 +4759,15 @@ body,
 .daily-role-record > div { min-width:0; display:grid; gap:2px; }
 .vote-notes .daily-role-record b { font-size:12px; }
 .vote-notes .daily-role-record p { margin:0; color:#6d5036; font-size:11px; line-height:1.45; overflow-wrap:anywhere; }
+.daily-smart-action { display:grid; grid-template-columns:auto minmax(0,1fr); gap:6px; }
+.daily-smart-action em { color:#8d2a2b; font-size:10px; font-style:normal; font-weight:800; white-space:nowrap; }
+.day-smart-actions { display:grid; gap:6px; }
+.day-smart-actions h4 { margin:0; color:#66493a; font-size:12px; }
+.vote-notes .day-smart-actions article { display:flex; align-items:center; gap:8px; padding:7px 9px; border:1px solid #dcc9aa; border-radius:9px; background:#faf2e4; }
+.day-smart-actions img { width:32px; height:32px; flex:none; border-radius:50%; object-fit:contain; }
+.day-smart-actions div { min-width:0; }
+.vote-notes .day-smart-actions b { font-size:11px; }
+.vote-notes .day-smart-actions p { margin:2px 0 0; color:#685142; font-size:11px; line-height:1.4; }
 .vote-notes .daily-vote-record { display:grid; gap:10px; padding:11px; border:1px solid #dbc7a5; border-radius:11px; background:#fffaf0; }
 .vote-notes .daily-vote-record .nomination-sentence { font-size:15px; line-height:1.45; color:#4a3025; }
 .vote-player-row { display:flex; align-items:center; flex-wrap:wrap; gap:7px; min-height:42px; }
