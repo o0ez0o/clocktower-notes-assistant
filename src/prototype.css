@@ -4736,6 +4736,7 @@ body,
 .role-record-current > img,.role-record-placeholder { width:42px; height:42px; flex:none; display:grid; place-items:center; border-radius:50%; object-fit:cover; background:#eee5d7; }
 .role-record-current > span:last-child { min-width:0; display:grid; gap:2px; }
 .role-record-current b { color:#52382c; font-size:12px; overflow-wrap:anywhere; }
+.role-record-info-preview { display:-webkit-box; overflow:hidden; color:#735e4e; font-size:10px; line-height:1.35; -webkit-box-orient:vertical; -webkit-line-clamp:2; }
 .global-role-record-heading em { color:#7a685b; font-size:10px; font-style:normal; white-space:normal; }
 .global-role-record-heading > button { min-height:34px; display:grid; place-items:center; border:0; border-radius:8px; background:#f6e9d8; color:#8a2929; }
 .global-role-record-heading .role-record-change { padding:0 11px; border:1px solid #d1b78f; background:#fff7e8; font-size:11px; font-weight:800; }
@@ -4743,6 +4744,11 @@ body,
 .role-record-header-actions { display:flex; align-items:center; gap:6px; }
 .role-record-header-actions > button { min-height:34px; display:inline-flex; align-items:center; justify-content:center; gap:4px; padding:0 10px; border:1px solid #d1b78f; border-radius:8px; background:#fff7e8; color:#7d2928; font-size:11px; font-weight:800; }
 .role-record-header-actions svg { width:13px; height:13px; }
+.role-record-info-editor { display:grid; gap:7px; padding:9px; border:1px solid #d7c09c; border-radius:9px; background:#f8efe1; }
+.global-role-record .role-record-info-editor textarea { min-height:76px; }
+.role-record-info-editor > div { display:flex; justify-content:flex-end; gap:7px; }
+.role-record-info-editor button { min-height:34px; padding:0 12px; border:1px solid #c9ae87; border-radius:7px; background:#fff8eb; color:#715545; font-weight:800; }
+.role-record-info-editor button.save { border-color:#8b292a; background:#8b292a; color:#fff; }
 .role-record-role-picker { max-height:min(48vh,420px); padding:12px 10px 2px; overflow-y:auto; overscroll-behavior:contain; border:1px solid #ddc7a5; border-radius:10px; background:#f8eedf; }
 .role-record-role-picker .role-picker-group { margin-bottom:14px; }
 .role-record-role-picker .role-avatar-grid { grid-template-columns:repeat(auto-fill,minmax(64px,1fr)); }
@@ -4767,13 +4773,16 @@ body,
 .smart-action-edit-actions { display:grid; grid-template-columns:1fr 2fr; gap:7px; }
 .smart-action-edit-actions button { min-height:36px; border:1px solid #c8ad85; border-radius:8px; background:#fff8ea; color:#735846; font-weight:800; }
 .smart-action-edit-actions .save { border-color:#8b292a; background:#8b292a; color:#fff; }
-.smart-action-summary { display:grid; grid-template-columns:62px minmax(0,1fr) auto; align-items:start; gap:10px; padding:10px; border:1px solid #dcc7a5; border-radius:9px; background:#fbf4e8; }
-.smart-action-summary > strong { min-height:34px; display:grid; place-items:center; padding:0 6px; border-radius:7px; background:#dce8ee; color:#315a70; font-size:11px; text-align:center; }
-.smart-action-summary > div:nth-child(2) { min-width:0; display:grid; gap:3px; }
-.smart-action-summary span,.smart-action-summary small { color:#8a7565; font-size:9px; }
-.smart-action-summary p { margin:0; color:#503b30; font-size:11px; line-height:1.5; }
-.smart-action-summary-actions { display:flex; gap:4px; }
-.smart-action-summary-actions button { min-height:30px; padding:0 7px; border:0; border-radius:6px; background:#efe3d2; color:#79594a; font-size:10px; }
+.smart-action-summary { display:grid; grid-template-columns:54px minmax(0,1fr) auto; align-items:center; gap:9px; padding:7px 0; border:0; border-bottom:1px solid rgba(121,83,54,.16); background:transparent; }
+.smart-action-summary:last-child { border-bottom:0; }
+.smart-action-summary > strong { color:#7d2928; font-size:11px; font-weight:800; white-space:nowrap; }
+.smart-action-summary > div:nth-child(2) { min-width:0; display:grid; gap:2px; }
+.smart-action-summary small { color:#8a7565; font-size:9px; }
+.smart-action-summary p { margin:0; color:#503b30; font-size:11px; line-height:1.45; }
+.smart-action-summary-actions { display:flex; align-items:center; gap:2px; }
+.smart-action-summary-actions button { width:28px; height:28px; display:grid; place-items:center; padding:0; border:0; border-radius:6px; background:transparent; color:#79594a; }
+.smart-action-summary-actions button:hover { background:#efe3d2; }
+.smart-action-summary-actions svg { width:14px; height:14px; }
 .add-role-record-bottom { width:100%; min-height:44px; display:flex; align-items:center; justify-content:center; gap:6px; border:1px dashed #aa8760; border-radius:10px; background:#fff7e7; color:#792827; font-weight:800; }
 .vote-notes { display:flex; flex-direction:column; gap:12px; }
 .vote-notes .daily-notes-section { display:none; }
@@ -4815,8 +4824,7 @@ body,
   .role-record-header-actions > button { padding-inline:8px; }
   .global-role-record-heading .role-record-delete { grid-column:2; grid-row:2; justify-self:end; }
   .role-record-role-picker { max-height:42vh; padding-inline:6px; }
-  .smart-action-summary { grid-template-columns:56px minmax(0,1fr); }
-  .smart-action-summary-actions { grid-column:2; justify-content:flex-end; }
+  .smart-action-summary { grid-template-columns:50px minmax(0,1fr) auto; }
 }
 @media (min-width: 1024px) {
   html,

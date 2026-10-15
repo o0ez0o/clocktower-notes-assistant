@@ -3388,6 +3388,8 @@ function Notes({
   const [roleRecordPickerId, setRoleRecordPickerId] = useState<number | null>(null);
   const [editingActionId, setEditingActionId] = useState<number | null>(null);
   const [actionRolePickerId, setActionRolePickerId] = useState<number | null>(null);
+  const [editingInfoRecordId, setEditingInfoRecordId] = useState<number | null>(null);
+  const [infoDraft, setInfoDraft] = useState("");
   const dayOptions = Array.from({ length: Math.max(5, day) }, (_, index) => index + 1);
   const noteRoles = availableRoles.some((role) => role.id === unknownDemonRole.id) ? availableRoles : [...availableRoles, unknownDemonRole];
   const roleFor = (record: RoleRecord) => noteRoles.find((role) => role.id === record.roleId) || roles.find((role) => role.id === record.roleId);
@@ -3406,7 +3408,11 @@ function Notes({
                 <div className="global-role-record-heading">
                   <div className="role-record-current">
                     {role ? <img src={role.image} alt="" /> : <span className="role-record-placeholder"><PlusIcon /></span>}
-                    <span><b>{role ? (language === "zh" ? role.zh : `${role.zh} (${role.en})`) : t("尚未选择角色")}</b>{player && <em>{t("已绑定玩家")} {player.id}{player.name ? ` · ${player.name}` : ""}</em>}</span>
+                    <span>
+                      <b>{role ? (language === "zh" ? role.zh : `${role.zh} (${role.en})`) : t("尚未选择角色")}</b>
+                      {record.text && <small className="role-record-info-preview">{record.text}</small>}
+                      {player && <em>{t("已绑定玩家")} {player.id}{player.name ? ` · ${player.name}` : ""}</em>}
+                    </span>
                   </div>
                   <div className="role-record-header-actions">
                     {!player && <button className="role-record-change" onClick={() => setRoleRecordPickerId((current) => current === record.id ? null : record.id)}>{role ? t("更换角色") : t("选择角色")}</button>}
@@ -3416,6 +3422,7 @@ function Notes({
                       setRoleRecords((records) => records.map((item) => item.id === record.id ? { ...item, actions: [...(item.actions || []), { id: actionId, day, targets: [], value: pattern.kind === "yesno" ? "是" : pattern.kind === "number" ? "0" : "", detail: "", saved: false }] } : item));
                       setEditingActionId(actionId);
                     }}><PlusIcon />{t("添加行动")}</button>}
+                    {role && <button className="role-record-add-info" onClick={() => { setInfoDraft(record.text || ""); setEditingInfoRecordId(record.id); }}><PlusIcon />{record.text ? t("编辑信息") : t("添加信息")}</button>}
                   </div>
                   <button className="role-record-delete" aria-label={t("删除")} onClick={() => { if (role) (record.actions || []).forEach((action) => onRemoveAction(role, action)); setRoleRecords((records) => records.filter((item) => item.id !== record.id)); }}><TrashIcon /></button>
                 </div>
@@ -3434,6 +3441,16 @@ function Notes({
                         setRoleRecordPickerId(null);
                       }}
                     />
+                  </div>
+                )}
+                {editingInfoRecordId === record.id && (
+                  <div className="role-record-info-editor">
+                    <textarea value={infoDraft} autoFocus placeholder={t("输入其他补充信息…")} onChange={(event) => setInfoDraft(event.target.value)} />
+                    <div>
+                      <button onClick={() => { setRoleRecords((records) => records.map((item) => item.id === record.id ? { ...item, text: "" } : item)); setInfoDraft(""); setEditingInfoRecordId(null); }}>{t("删除")}</button>
+                      <button onClick={() => { setInfoDraft(record.text || ""); setEditingInfoRecordId(null); }}>{t("取消")}</button>
+                      <button className="save" onClick={() => { setRoleRecords((records) => records.map((item) => item.id === record.id ? { ...item, text: infoDraft.trim() } : item)); setEditingInfoRecordId(null); }}>{t("保存")}</button>
+                    </div>
                   </div>
                 )}
                 {role && (() => {
@@ -3466,20 +3483,14 @@ function Notes({
                         ) : (
                           <section className="smart-action-summary" key={action.id}>
                             <strong>{t("第")} {action.day} {t("天")}</strong>
-                            <div><span>{pattern.valueLabel}</span><p>{roleActionConclusion(role, action, players)}</p>{action.detail && role.id !== "artist" && <small>{action.detail}</small>}</div>
-                            <div className="smart-action-summary-actions"><button onClick={() => setEditingActionId(action.id)}>{t("编辑")}</button><button onClick={removeAction}>{t("删除")}</button></div>
+                            <div><p>{roleActionConclusion(role, action, players)}</p>{action.detail && role.id !== "artist" && <small>{action.detail}</small>}</div>
+                            <div className="smart-action-summary-actions"><button aria-label={t("编辑")} title={t("编辑")} onClick={() => setEditingActionId(action.id)}><Pencil1Icon /></button><button aria-label={t("删除")} title={t("删除")} onClick={removeAction}><TrashIcon /></button></div>
                           </section>
                         );
                       })}
                     </div>
                   );
                 })()}
-                <textarea
-                  value={record.text}
-                  disabled={!record.roleId}
-                  placeholder={record.roleId ? t("其他补充信息…") : t("请先选择角色")}
-                  onChange={(event) => setRoleRecords((records) => records.map((item) => item.id === record.id ? { ...item, text: event.target.value } : item))}
-                />
               </article>
             );
           })}
