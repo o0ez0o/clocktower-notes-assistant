@@ -2949,62 +2949,35 @@ export default function Prototype() {
               })}
             </div>
           </section>
-          {(["镇民", "外来者", "爪牙", "恶魔"] as CoreTeam[]).map((teamName) => (
-            <section className={`role-picker-group team-${teamName}`} key={teamName}>
-              <h3>{teamText(language, teamName)}</h3>
-              <div className="role-avatar-grid">
-                {groups[teamName].map((r) => {
-                  const assigned = players.some((p) => p.role?.id === r.id);
-                  const current = players.find((p) => p.id === rolePlayer)?.role?.id === r.id;
-                  return (
-                    <div className="role-avatar-item" key={r.id}>
-                      <button
-                        aria-label={language === "zh" ? r.zh : `${r.zh} (${r.en})`}
-                        title={language === "zh" ? r.zh : `${r.zh} (${r.en})`}
-                        className={`role-avatar-option ${assigned ? "assigned" : ""} ${current ? "current" : ""}`}
-                        onPointerDown={(event) => {
-                          if (event.pointerType === "mouse") return;
-                          roleTouchStart.current = { id: r.id, at: performance.now() };
-                          showRoleSkill(r, event.currentTarget, "hold");
-                        }}
-                        onPointerEnter={(event) => {
-                          if (event.pointerType !== "mouse") return;
-                          showRoleSkill(r, event.currentTarget, "hover");
-                        }}
-                        onPointerLeave={(event) => {
-                          if (event.pointerType !== "mouse") return;
-                          setRoleSkill((shown) => shown?.id === r.id ? null : shown);
-                          setRoleSkillMode((mode) => mode === "hover" ? null : mode);
-                        }}
-                        onContextMenu={(event) => event.preventDefault()}
-                        onClick={() => {
-                          if (suppressRoleClick.current === r.id) {
-                            suppressRoleClick.current = null;
-                            return;
-                          }
-                          setPlayers((ps) =>
-                            ps.map((p) => (p.id === rolePlayer ? { ...p, role: r } : p)),
-                          );
-                          setRoleRecords((records) => {
-                            const waiting = records.find((record) => record.roleId === r.id && record.playerId === undefined);
-                            return waiting && rolePlayer !== null
-                              ? records.map((record) => record.id === waiting.id ? { ...record, playerId: rolePlayer } : record)
-                              : records;
-                          });
-                          setToast(`已选择${r.zh}`);
-                        }}
-                      >
-                        <img src={r.image} alt="" />
-                      </button>
-                      {display.showRoleNames && (
-                        <small>{language === "zh" ? r.zh : `${r.zh} (${r.en})`}</small>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          ))}
+          <RoleSelectionGrid
+            language={language}
+            availableRoles={boardRoles}
+            selectedRoleId={players.find((player) => player.id === rolePlayer)?.role?.id}
+            assignedRoleIds={new Set(players.flatMap((player) => player.role ? [player.role.id] : []))}
+            showNames={display.showRoleNames}
+            onSkillStart={(role, target, mode) => {
+              if (mode === "hold") roleTouchStart.current = { id: role.id, at: performance.now() };
+              showRoleSkill(role, target, mode);
+            }}
+            onSkillEnd={(role) => {
+              setRoleSkill((shown) => shown?.id === role.id ? null : shown);
+              setRoleSkillMode((mode) => mode === "hover" ? null : mode);
+            }}
+            onSelect={(role) => {
+              if (suppressRoleClick.current === role.id) {
+                suppressRoleClick.current = null;
+                return;
+              }
+              setPlayers((playerList) => playerList.map((player) => player.id === rolePlayer ? { ...player, role } : player));
+              setRoleRecords((records) => {
+                const waiting = records.find((record) => record.roleId === role.id && record.playerId === undefined);
+                return waiting && rolePlayer !== null
+                  ? records.map((record) => record.id === waiting.id ? { ...record, playerId: rolePlayer } : record)
+                  : records;
+              });
+              setToast(`已选择${role.zh}`);
+            }}
+          />
         </div>
         {roleSkill && (
           <div
@@ -3249,6 +3222,69 @@ function Tabs({
     </div>
   );
 }
+
+function RoleSelectionGrid({
+  language,
+  availableRoles,
+  selectedRoleId,
+  assignedRoleIds = new Set<string>(),
+  showNames,
+  onSelect,
+  onSkillStart,
+  onSkillEnd,
+}: {
+  language: Language;
+  availableRoles: Role[];
+  selectedRoleId?: string;
+  assignedRoleIds?: Set<string>;
+  showNames: boolean;
+  onSelect: (role: Role) => void;
+  onSkillStart?: (role: Role, target: HTMLElement, mode: "hold" | "hover") => void;
+  onSkillEnd?: (role: Role) => void;
+}) {
+  return <>
+    {(["镇民", "外来者", "爪牙", "恶魔"] as CoreTeam[]).map((teamName) => {
+      const teamRoles = availableRoles.filter((role) => role.team === teamName);
+      if (!teamRoles.length) return null;
+      return (
+        <section className={`role-picker-group team-${teamName}`} key={teamName}>
+          <h3>{teamText(language, teamName)}</h3>
+          <div className="role-avatar-grid">
+            {teamRoles.map((role) => {
+              const label = language === "zh" ? role.zh : `${role.zh} (${role.en})`;
+              return (
+                <div className="role-avatar-item" key={role.id}>
+                  <button
+                    type="button"
+                    aria-label={label}
+                    title={label}
+                    aria-pressed={selectedRoleId === role.id}
+                    className={`role-avatar-option ${assignedRoleIds.has(role.id) ? "assigned" : ""} ${selectedRoleId === role.id ? "current" : ""}`}
+                    onPointerDown={(event) => {
+                      if (event.pointerType !== "mouse") onSkillStart?.(role, event.currentTarget, "hold");
+                    }}
+                    onPointerEnter={(event) => {
+                      if (event.pointerType === "mouse") onSkillStart?.(role, event.currentTarget, "hover");
+                    }}
+                    onPointerLeave={(event) => {
+                      if (event.pointerType === "mouse") onSkillEnd?.(role);
+                    }}
+                    onContextMenu={(event) => event.preventDefault()}
+                    onClick={() => onSelect(role)}
+                  >
+                    <img src={role.image} alt="" />
+                  </button>
+                  {showNames && <small>{label}</small>}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      );
+    })}
+  </>;
+}
+
 function Notes({
   initialTab,
   language,
@@ -3280,6 +3316,7 @@ function Notes({
 }) {
   const t = (text: string) => translate(language, text);
   const [tab, setTab] = useState<"roles" | "votes">(initialTab || "roles");
+  const [roleRecordPickerId, setRoleRecordPickerId] = useState<number | null>(null);
   const roleFor = (record: RoleRecord) => availableRoles.find((role) => role.id === record.roleId) || roles.find((role) => role.id === record.roleId);
   const roleRecordsList = (
     <section className="global-role-records">
@@ -3295,23 +3332,29 @@ function Notes({
             return (
               <article className="global-role-record" key={record.id}>
                 <div className="global-role-record-heading">
-                  {role ? <img src={role.image} alt="" /> : <span className="role-record-placeholder"><PlusIcon /></span>}
-                  <select
-                    aria-label={t("选择角色")}
-                    value={record.roleId || ""}
-                    disabled={record.playerId !== undefined}
-                    onChange={(event) => {
-                      const roleId = event.target.value || undefined;
-                      const owner = players.find((item) => item.role?.id === roleId);
-                      setRoleRecords((records) => records.map((item) => item.id === record.id ? { ...item, roleId, playerId: owner?.id } : item));
-                    }}
-                  >
-                    <option value="">{t("选择一个角色")}</option>
-                    {availableRoles.map((item) => <option value={item.id} key={item.id}>{language === "zh" ? item.zh : `${item.zh} (${item.en})`}</option>)}
-                  </select>
-                  {player && <em>{t("已绑定玩家")} {player.id}{player.name ? ` · ${player.name}` : ""}</em>}
-                  <button aria-label={t("删除")} onClick={() => setRoleRecords((records) => records.filter((item) => item.id !== record.id))}><TrashIcon /></button>
+                  <div className="role-record-current">
+                    {role ? <img src={role.image} alt="" /> : <span className="role-record-placeholder"><PlusIcon /></span>}
+                    <span><b>{role ? (language === "zh" ? role.zh : `${role.zh} (${role.en})`) : t("尚未选择角色")}</b>{player && <em>{t("已绑定玩家")} {player.id}{player.name ? ` · ${player.name}` : ""}</em>}</span>
+                  </div>
+                  {!player && <button className="role-record-change" onClick={() => setRoleRecordPickerId((current) => current === record.id ? null : record.id)}>{role ? t("更换角色") : t("选择角色")}</button>}
+                  <button className="role-record-delete" aria-label={t("删除")} onClick={() => setRoleRecords((records) => records.filter((item) => item.id !== record.id))}><TrashIcon /></button>
                 </div>
+                {!player && (!role || roleRecordPickerId === record.id) && (
+                  <div className="role-record-role-picker">
+                    <RoleSelectionGrid
+                      language={language}
+                      availableRoles={availableRoles}
+                      selectedRoleId={record.roleId}
+                      assignedRoleIds={new Set(players.flatMap((item) => item.role ? [item.role.id] : []))}
+                      showNames
+                      onSelect={(selectedRole) => {
+                        const owner = players.find((item) => item.role?.id === selectedRole.id);
+                        setRoleRecords((records) => records.map((item) => item.id === record.id ? { ...item, roleId: selectedRole.id, playerId: owner?.id } : item));
+                        setRoleRecordPickerId(null);
+                      }}
+                    />
+                  </div>
+                )}
                 {role && (() => {
                   const pattern = actionPatternForRole(role);
                   const updateAction = (actionId: number, patch: Partial<RoleAction>) => setRoleRecords((records) => records.map((item) => item.id === record.id
