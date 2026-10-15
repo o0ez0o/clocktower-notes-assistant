@@ -3,7 +3,6 @@ import {
   BottomSheet,
   Carousel,
   KeyboardInput,
-  KeyboardTextarea,
 } from "./mobile";
 import {
   ArrowLeftIcon,
@@ -730,7 +729,7 @@ const actionPatternForRole = (role: Role): RoleActionPattern => {
   if (role.id === "scapegoat") return { kind: "text", targetCount: 0, prompt: "记录替罪羊是否代替同阵营玩家被处决", valueLabel: "替代处决记录" };
   if (role.id === "poisoner" || (/中毒/.test(ability) && /选择/.test(ability))) return { kind: "target", targetCount: 1, prompt: "选择本夜被施加中毒的玩家", valueLabel: "中毒目标" };
   if (role.id === "fortuneteller") return { kind: "yesno", targetCount: 2, prompt: "选择本夜查验的两名玩家", valueLabel: "是否有恶魔" };
-  if (role.id === "chef") return { kind: "number", targetCount: 0, prompt: "记录首夜得到的信息", valueLabel: "相邻邪恶玩家对数", numberMin: 0, numberMax: "halfPlayers" };
+  if (role.id === "chef") return { kind: "number", targetCount: 0, prompt: "", valueLabel: "相邻邪恶玩家对数", numberMin: 0, numberMax: "halfPlayers" };
   if (role.id === "mathematician") return { kind: "number", targetCount: 0, prompt: "记录除自己外，因其他角色能力影响而未正常生效的玩家数量", valueLabel: "异常生效人数", numberMin: 0, numberMax: "otherPlayers" };
   if (role.id === "empath") return { kind: "number", targetCount: 2, prompt: "选择当晚两名存活邻居，并记录其中的邪恶玩家数量", valueLabel: "邪恶邻居数", numberMin: 0, numberMax: 2 };
   if (role.id === "clockmaker") return { kind: "number", targetCount: 0, prompt: "记录恶魔到最近爪牙的最短座位步数", valueLabel: "最近距离", numberMin: 1, numberMax: "halfPlayers" };
@@ -989,6 +988,7 @@ export default function Prototype() {
   const [sharedCompositionDraft, setSharedCompositionDraft] = useState<Composition>(composition);
   const [onlineCount, setOnlineCount] = useState(0);
   const [roomNameDraft, setRoomNameDraft] = useState("");
+  const [editingRoomName, setEditingRoomName] = useState(false);
   const [recentRooms, setRecentRooms] = useState<RecentRoom[]>(readRecentRooms);
   const sharedRoomRef = useRef<SharedRoom | null>(null);
   const ignoreRemoteRevision = useRef<number | null>(null);
@@ -1167,6 +1167,13 @@ export default function Prototype() {
     .map((role) => role.abilityZh || !officialRoleText[role.id]?.ability ? role : { ...role, abilityZh: officialRoleText[role.id].ability });
   const regularBoardRoles = boardRoles.filter((role) => role.team !== "旅行者");
   const travellerRoles = boardRoles.filter((role) => role.team === "旅行者");
+  const noteAvailableRoles = [
+    ...regularBoardRoles,
+    ...players
+      .filter((player) => player.isTraveller && player.role?.team === "旅行者")
+      .flatMap((player) => player.role ? [player.role] : [])
+      .filter((role, index, items) => items.findIndex((item) => item.id === role.id) === index),
+  ];
   const groups = useMemo(
     () => ({
       镇民: boardRoles.filter((r) => r.team === "镇民"),
@@ -1263,11 +1270,12 @@ export default function Prototype() {
     setRoomNameDraft(roomNameSuffix(room));
     unsubscribeSharedRoom.current = subscribeRoom(room, applySharedRoom, setOnlineCount);
   };
-  const createSharedGame = async () => {
+  const createSharedGame = async (includeCurrentState = false) => {
     try {
       setSyncStatus("syncing");
       // No event, vote, execution or death from the prior game is reused.
       const emptyState: SharedGameState = { schemaVersion: SHARED_STATE_SCHEMA_VERSION, stateUpdatedAt: new Date().toISOString(), day: 1, phase: "setup", nominations: [], exiles: [], travellers: [], deaths: [], peacefulDays: [], publicAnnouncements: [], gameEvents: [], boardId: selectedBoardId, composition, playerCount: Object.values(composition).reduce((sum, count) => sum + count, 0) };
+      const initialState = includeCurrentState ? sharedState() : emptyState;
       const boardName = currentBoard?.name || "未命名板子";
       const now = new Date();
       let ordinal = 1;
@@ -1281,7 +1289,7 @@ export default function Prototype() {
             created.getDate() === now.getDate();
         }).length;
       } catch { /* room creation remains available if the list endpoint is unavailable */ }
-      const room = await createRoom(boardName, emptyState, makeDefaultRoomName(boardName, now, String(ordinal)));
+      const room = await createRoom(boardName, initialState, makeDefaultRoomName(boardName, now, String(ordinal)));
       unsubscribeSharedRoom.current?.();
       setRelations([]); setDeaths([]); setPeacefulDays([]); setDay(1); setMaxDay(1);
       bindSharedRoom(room);
@@ -1451,7 +1459,7 @@ export default function Prototype() {
     const hasPublicGameData = day > 1 || relations.some((relation) => relation.type === "nominate" || relation.type === "exile") || players.some((player) => player.isTraveller) || deaths.length > 0 || peacefulDays.length > 0;
     if (!started || sharedRoomRef.current || !hasPublicGameData || autoCreatingSharedRoom.current) return;
     autoCreatingSharedRoom.current = true;
-    void createSharedGame().finally(() => { autoCreatingSharedRoom.current = false; });
+    void createSharedGame(true).finally(() => { autoCreatingSharedRoom.current = false; });
   }, [started, day, relations, players, deaths, peacefulDays]);
   useEffect(() => {
     const room = sharedRoomRef.current;
@@ -1928,7 +1936,26 @@ export default function Prototype() {
     setToast("日期已切换");
   };
   const selected = players.find((p) => p.id === notePlayer);
-  const selectedRoleRecord = roleRecords.find((record) => record.playerId === notePlayer);
+  const selectedRoleRecord = roleRecords.find((record) => record.playerId === notePlayer && (!selected?.role || record.roleId === selected.role.id));
+  const setPlayerRoleRecords = (playerId: number, value: RoleRecord[] | ((records: RoleRecord[]) => RoleRecord[])) => {
+    setRoleRecords((current) => {
+      const scoped = current.filter((record) => record.playerId === playerId);
+      const next = typeof value === "function" ? value(scoped) : value;
+      return [...current.filter((record) => record.playerId !== playerId), ...next.map((record) => ({ ...record, playerId }))];
+    });
+  };
+  const choosePlayerRoleForNotes = (playerId: number, role: Role) => {
+    setPlayers((items) => items.map((player) => player.id === playerId ? { ...player, role } : player));
+    setRoleRecords((records) => {
+      const existing = records.find((record) => record.roleId === role.id && record.playerId === playerId)
+        || records.find((record) => record.roleId === role.id && record.playerId === undefined)
+        || records.find((record) => record.roleId === role.id);
+      const released = records.map((record) => record.playerId === playerId && record.id !== existing?.id ? { ...record, playerId: undefined } : record);
+      return existing
+        ? released.map((record) => record.id === existing.id ? { ...record, playerId } : record)
+        : [...released, { id: Date.now(), roleId: role.id, playerId, text: "", actions: [] }];
+    });
+  };
   const editPlayerDay = (playerId: number, recordDay: number) => {
     setDay(recordDay);
     setNotePlayer(playerId);
@@ -2019,7 +2046,7 @@ export default function Prototype() {
                   <LightbulbIcon />
                 </button>
                 {sharedRoom && (
-                  <button className="shared-utility-button ui-button ui-button--secondary ui-button--icon" aria-label="共享游戏局" onClick={() => setSharedRoomOpen(true)}>
+                  <button className="shared-utility-button ui-button ui-button--secondary ui-button--icon" aria-label="共享游戏局" onClick={() => { setEditingRoomName(false); setSharedRoomOpen(true); }}>
                     <Link2Icon />
                   </button>
                 )}
@@ -2033,10 +2060,18 @@ export default function Prototype() {
               </div>
             </div>
             {sharedRoom && (
-              <button className="shared-room-strip" aria-live="polite" onClick={() => setSharedRoomOpen(true)}>
-                <span>共享局</span><b>{sharedRoom.room_code}</b>
-                <span>{syncStatus === "syncing" ? "正在同步…" : syncStatus === "failed" ? "同步失败，请重试" : "已同步"}</span>
-              </button>
+              <div className="shared-room-strip" aria-live="polite">
+                <button className="shared-room-strip__summary" onClick={() => { setEditingRoomName(false); setSharedRoomOpen(true); }}>
+                  <span>共享局</span><b>{sharedRoom.room_code}</b>
+                  <span>{syncStatus === "syncing" ? "正在同步…" : syncStatus === "failed" ? "同步失败，请重试" : "已同步"}</span>
+                  <i aria-hidden="true">·</i>
+                  <span>{players.filter((player) => !player.marks.includes("deadVote") && !player.marks.includes("deadSpent")).length}/{players.length} 玩家存活</span>
+                </button>
+                <div className="shared-room-strip__actions">
+                  <button aria-label="复制局号" title="复制局号" onClick={() => void copyRoomCode()}><CopyIcon /><span>Copy</span></button>
+                  <button aria-label="复制邀请链接" title="复制邀请链接" onClick={() => void copyInvite()}><Link2Icon /><span>Link</span></button>
+                </div>
+              </div>
             )}
             <div className="title-day-row">
               <div className="title-day-copy">
@@ -2070,8 +2105,9 @@ export default function Prototype() {
                 language={language}
                 players={players}
                 roleRecords={roleRecords}
-                availableRoles={boardRoles}
+                availableRoles={noteAvailableRoles}
                 setRoleRecords={setRoleRecords}
+                onChangeRecordRole={(playerId, role) => { if (playerId) setPlayers((items) => items.map((player) => player.id === playerId ? { ...player, role } : player)); }}
                 onSaveAction={saveRoleAction}
                 onRemoveAction={removeRoleActionEffects}
                 relations={relations}
@@ -2094,8 +2130,9 @@ export default function Prototype() {
                 language={language}
                 players={players}
                 roleRecords={roleRecords}
-                availableRoles={boardRoles}
+                availableRoles={noteAvailableRoles}
                 setRoleRecords={setRoleRecords}
+                onChangeRecordRole={(playerId, role) => { if (playerId) setPlayers((items) => items.map((player) => player.id === playerId ? { ...player, role } : player)); }}
                 onSaveAction={saveRoleAction}
                 onRemoveAction={removeRoleActionEffects}
                 relations={relations}
@@ -2116,8 +2153,9 @@ export default function Prototype() {
                 language={language}
                 players={players}
                 roleRecords={roleRecords}
-                availableRoles={boardRoles}
+                availableRoles={noteAvailableRoles}
                 setRoleRecords={setRoleRecords}
+                onChangeRecordRole={(playerId, role) => { if (playerId) setPlayers((items) => items.map((player) => player.id === playerId ? { ...player, role } : player)); }}
                 onSaveAction={saveRoleAction}
                 onRemoveAction={removeRoleActionEffects}
                 relations={relations}
@@ -3185,6 +3223,7 @@ export default function Prototype() {
           </button>
         )}
         <div className="role-picker-content" data-scroll-drag="ignore">
+          <h3 className="role-picker-section-label">{t("标记玩家状态")}</h3>
           <section className="role-picker-group clear-role-group">
             <div className="role-avatar-grid">
               <button
@@ -3204,11 +3243,6 @@ export default function Prototype() {
               >
                 <span>{t(players.find((player) => player.id === rolePlayer)?.isTraveller ? "取消旅行者标记" : "取消标记")}</span>
               </button>
-              {!players.find((player) => player.id === rolePlayer)?.isTraveller && (
-                <button className="role-avatar-option add-traveller-option" onClick={openTravellerAdd}>
-                  <PlusIcon /><span>{t("添加旅行者")}</span>
-                </button>
-              )}
               {marks.filter((status) => !players.find((player) => player.id === rolePlayer)?.isTraveller || travellerMarkKeys.has(status.key)).map((status) => {
                 const active = players.find((player) => player.id === rolePlayer)?.marks.includes(status.key);
                 return (
@@ -3226,6 +3260,28 @@ export default function Prototype() {
               })}
             </div>
           </section>
+          {roleRecords.some((record) => record.roleId && ((record.actions?.length || 0) > 0 || Boolean(record.text))) && (
+            <section className="recorded-role-shortcuts">
+              <h3>{t("已记录角色")}</h3>
+              <div className="recorded-role-shortcut-track">
+                {roleRecords.filter((record, index, records) => record.roleId && ((record.actions?.length || 0) > 0 || Boolean(record.text)) && records.findIndex((item) => item.roleId === record.roleId) === index).map((record) => {
+                  const role = noteAvailableRoles.find((item) => item.id === record.roleId) || roles.find((item) => item.id === record.roleId);
+                  if (!role || (players.find((player) => player.id === rolePlayer)?.isTraveller ? role.team !== "旅行者" : role.team === "旅行者")) return null;
+                  return (
+                    <button key={record.id} className="recorded-role-shortcut" onClick={() => {
+                      if (rolePlayer === null) return;
+                      choosePlayerRoleForNotes(rolePlayer, role);
+                      setToast(`已选择${role.zh}`);
+                    }}>
+                      <img src={role.image} alt="" />
+                      <span><b>{role.zh}</b>{[...(record.actions || [])].sort((a, b) => a.day - b.day).map((action) => <small key={action.id}>{t("第")} {action.day} {t("天")} · {roleActionConclusion(role, action, players)}</small>)}{record.text && <small>{record.text}</small>}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+          <h3 className="role-picker-section-label">{t("选择角色")}</h3>
           <RoleSelectionGrid
             language={language}
             availableRoles={players.find((player) => player.id === rolePlayer)?.isTraveller ? travellerRoles : regularBoardRoles}
@@ -3245,13 +3301,7 @@ export default function Prototype() {
                 suppressRoleClick.current = null;
                 return;
               }
-              setPlayers((playerList) => playerList.map((player) => player.id === rolePlayer ? { ...player, role } : player));
-              setRoleRecords((records) => {
-                const waiting = records.find((record) => record.roleId === role.id && record.playerId === undefined);
-                return waiting && rolePlayer !== null
-                  ? records.map((record) => record.id === waiting.id ? { ...record, playerId: rolePlayer } : record)
-                  : records;
-              });
+              if (rolePlayer !== null) choosePlayerRoleForNotes(rolePlayer, role);
               setToast(`已选择${role.zh}`);
             }}
           />
@@ -3309,13 +3359,7 @@ export default function Prototype() {
                 if (rolePlayer === null) return;
                 const playerId = rolePlayer;
                 const playerRole = players.find((player) => player.id === playerId)?.role;
-                if (!playerRole) {
-                  setToast(t("请先选择角色"));
-                  return;
-                }
-                setRoleRecords((records) => records.some((record) => record.playerId === playerId)
-                  ? records
-                  : [...records, { id: Date.now(), roleId: playerRole.id, playerId, text: "" }]);
+                if (playerRole) choosePlayerRoleForNotes(playerId, playerRole);
                 setRolePlayer(null);
                 setNotePlayer(playerId);
               }}
@@ -3338,7 +3382,7 @@ export default function Prototype() {
         open={notePlayer !== null}
         onOpenChange={(o) => !o && setNotePlayer(null)}
         title={`${language === "zh" ? "玩家" : "Player"} ${notePlayer || ""}${selected?.role ? ` · ${language === "zh" ? selected.role.zh : selected.role.en}` : ""}`}
-        description={t("角色笔记 · 不区分天数")}
+        description={t("玩家角色记录")}
         snap={0.62}
       >
         <button
@@ -3349,7 +3393,7 @@ export default function Prototype() {
           <Cross2Icon />
         </button>
         {selected && (
-          <div className="note-editor">
+          <div className="note-editor player-role-note-editor" data-scroll-drag="ignore">
             <label>{t("玩家名字（可选）")}</label>
             <KeyboardInput
               value={selected.name}
@@ -3362,71 +3406,73 @@ export default function Prototype() {
                 )
               }
             />
-            <label>{t("角色记录")}</label>
-            <KeyboardTextarea
-              value={selectedRoleRecord?.text || ""}
-              placeholder={t("记录查验、发言或推理…")}
-              onChange={(e) =>
-                setRoleRecords((records) => {
-                  const existing = records.find((record) => record.playerId === notePlayer);
-                  if (existing) return records.map((record) => record.id === existing.id ? { ...record, text: e.target.value } : record);
-                  return selected.role && notePlayer !== null
-                    ? [...records, { id: Date.now(), roleId: selected.role.id, playerId: notePlayer, text: e.target.value }]
-                    : records;
-                })
-              }
-            />
-            <div className="editor-actions">
-              <button
-                onClick={() => setRoleRecords((records) => records.map((record) => record.playerId === notePlayer ? { ...record, text: "" } : record))}
-              >
-                {t("清除")}
-              </button>
-              <button
-                className="save"
-                onClick={() => {
-                  setNotePlayer(null);
-                  setToast(t("玩家笔记已保存"));
-                }}
-              >
-                {t("保存")}
-              </button>
-            </div>
+            {roleRecords.some((record) => record.roleId && ((record.actions?.length || 0) > 0 || Boolean(record.text))) && <section className="recorded-role-shortcuts note-role-shortcuts">
+              <h3>{t("选择已有角色记录")}</h3>
+              <div className="recorded-role-shortcut-track">
+                {roleRecords.filter((record, index, records) => record.roleId && ((record.actions?.length || 0) > 0 || Boolean(record.text)) && records.findIndex((item) => item.roleId === record.roleId) === index).map((record) => {
+                  const role = noteAvailableRoles.find((item) => item.id === record.roleId) || roles.find((item) => item.id === record.roleId);
+                  if (!role || (selected.isTraveller ? role.team !== "旅行者" : role.team === "旅行者")) return null;
+                  return <button key={record.id} className="recorded-role-shortcut" onClick={() => notePlayer !== null && choosePlayerRoleForNotes(notePlayer, role)}><img src={role.image} alt="" /><span><b>{role.zh}</b>{[...(record.actions || [])].sort((a, b) => a.day - b.day).map((action) => <small key={action.id}>{t("第")} {action.day} {t("天")} · {roleActionConclusion(role, action, players)}</small>)}</span></button>;
+                })}
+              </div>
+            </section>}
+            {!selectedRoleRecord && <section className="note-new-role-picker">
+              <h3>{t("为该玩家选择角色")}</h3>
+              <RoleSelectionGrid language={language} availableRoles={selected.isTraveller ? travellerRoles : regularBoardRoles} assignedRoleIds={new Set(players.flatMap((player) => player.role ? [player.role.id] : []))} showNames onSelect={(role) => notePlayer !== null && choosePlayerRoleForNotes(notePlayer, role)} />
+            </section>}
+            {selectedRoleRecord && notePlayer !== null && <div className="single-player-role-notes">
+              <Notes
+                initialTab="roles"
+                language={language}
+                players={players}
+                roleRecords={[selectedRoleRecord]}
+                availableRoles={noteAvailableRoles}
+                setRoleRecords={(value) => setPlayerRoleRecords(notePlayer, value)}
+                onChangeRecordRole={(playerId, role) => { if (playerId) choosePlayerRoleForNotes(playerId, role); }}
+                onSaveAction={saveRoleAction}
+                onRemoveAction={removeRoleActionEffects}
+                relations={relations}
+                deaths={deaths}
+                peacefulDays={peacefulDays}
+                togglePeaceful={(d) => setPeacefulDays((days) => days.includes(d) ? days.filter((item) => item !== d) : [...days, d])}
+                day={day}
+                alwaysShowDailyRoles={display.alwaysShowDailyRoles}
+                edit={editPlayerDay}
+                clear={clearPlayerDay}
+              />
+            </div>}
+            <button className="player-role-note-close ui-button ui-button--primary" onClick={() => { setNotePlayer(null); setToast(t("玩家笔记已保存")); }}>{t("保存并关闭")}</button>
           </div>
         )}
       </BottomSheet>
       <BottomSheet
         open={sharedRoomOpen && Boolean(sharedRoom)}
-        onOpenChange={setSharedRoomOpen}
+        onOpenChange={(open) => { setSharedRoomOpen(open); if (!open) setEditingRoomName(false); }}
         title="共享游戏局"
-        description={sharedRoom ? `${sharedRoom.room_code} · ${sharedRoom.game_type}` : undefined}
         snap={0.78}
       >
+        <button aria-label={t("关闭")} className="desktop-modal-close shared-room-panel-close" onClick={() => setSharedRoomOpen(false)}><Cross2Icon /></button>
         {sharedRoom && (
           <div className="shared-detail-sheet">
             <div className="shared-detail-scroll" data-scroll-drag="ignore">
-              <section className={`sync-state sync-state--${syncStatus}`}>
-                <span>同步状态</span>
-                <b>{syncStatus === "syncing" ? "正在同步…" : syncStatus === "failed" ? "同步失败，请重试" : "已同步"}</b>
+              <section className="shared-room-identity">
+                <div><b>{sharedRoom.room_code}</b><span>{sharedRoom.game_type}</span></div>
+                <em className={`sync-badge sync-badge--${syncStatus}`}>{syncStatus === "syncing" ? "正在同步…" : syncStatus === "failed" ? "未同步" : "已同步"}</em>
               </section>
               <section className="room-name-editor">
                 <label htmlFor="shared-room-name">本局局名</label>
-                <div className="room-name-field">
-                  <b>{makeRoomNamePrefix(sharedRoom.game_type, new Date(sharedRoom.created_at))}</b>
-                  <input
-                    id="shared-room-name"
-                    value={roomNameDraft}
-                    maxLength={ROOM_NAME_EDIT_LIMIT}
-                    onChange={(event) => setRoomNameDraft(truncateChars(event.target.value, ROOM_NAME_EDIT_LIMIT))}
-                    onKeyDown={(event) => { if (event.key === "Enter") void saveRoomName(); }}
-                  />
-                  <span>{[...roomNameDraft].length}/{ROOM_NAME_EDIT_LIMIT}</span>
-                </div>
-                <button className="ui-button ui-button--secondary" disabled={makeDefaultRoomName(sharedRoom.game_type, new Date(sharedRoom.created_at), roomNameDraft) === sharedRoom.room_name} onClick={() => void saveRoomName()}>保存</button>
+                {editingRoomName ? <>
+                  <div className="room-name-field">
+                    <b>{makeRoomNamePrefix(sharedRoom.game_type, new Date(sharedRoom.created_at))}</b>
+                    <input id="shared-room-name" value={roomNameDraft} maxLength={ROOM_NAME_EDIT_LIMIT} onChange={(event) => setRoomNameDraft(truncateChars(event.target.value, ROOM_NAME_EDIT_LIMIT))} onKeyDown={(event) => { if (event.key === "Enter") void saveRoomName(); }} />
+                    <span>{[...roomNameDraft].length}/{ROOM_NAME_EDIT_LIMIT}</span>
+                  </div>
+                  <button className="ui-button ui-button--secondary" disabled={makeDefaultRoomName(sharedRoom.game_type, new Date(sharedRoom.created_at), roomNameDraft) === sharedRoom.room_name} onClick={() => { void saveRoomName(); setEditingRoomName(false); }}>保存</button>
+                </> : <div className="room-name-readonly"><b>{displayedRoomName(sharedRoom)}</b><button onClick={() => setEditingRoomName(true)}><Pencil1Icon />编辑</button></div>}
               </section>
               <section className="share-room-actions">
                 <h3>分享此局</h3>
-                <div className="share-code-row"><b>{sharedRoom.room_code}</b><button onClick={() => void copyRoomCode()}>复制</button><button aria-label="复制邀请文案" onClick={() => void copyInvite()}><Link2Icon /></button><button onClick={() => void shareInvite()}><Share1Icon />分享</button></div>
+                <div className="share-code-row"><b>{sharedRoom.room_code}</b><button onClick={() => void copyRoomCode()}><CopyIcon />复制</button><button onClick={() => void shareInvite()}><Share1Icon />分享</button></div>
               </section>
               <section className="presence-row"><span>当前连接人数</span><b>正在连接 {onlineCount || 1} 人</b></section>
               <section className="room-times"><div><span>开始于</span><b>{new Date(sharedRoom.started_at || sharedRoom.created_at).toLocaleString("zh-CN")}</b></div><div><span>最后更新</span><b>{new Date(sharedRoom.updated_at).toLocaleString("zh-CN")}</b></div></section>
@@ -3454,8 +3500,9 @@ export default function Prototype() {
             language={language}
             players={players}
             roleRecords={roleRecords}
-            availableRoles={boardRoles}
+            availableRoles={noteAvailableRoles}
             setRoleRecords={setRoleRecords}
+            onChangeRecordRole={(playerId, role) => { if (playerId) setPlayers((items) => items.map((player) => player.id === playerId ? { ...player, role } : player)); }}
             onSaveAction={saveRoleAction}
             onRemoveAction={removeRoleActionEffects}
             relations={relations}
@@ -3522,7 +3569,7 @@ function RoleSelectionGrid({
   onSkillEnd?: (role: Role) => void;
 }) {
   return <>
-    {(["镇民", "外来者", "爪牙", "恶魔"] as CoreTeam[]).map((teamName) => {
+    {(["镇民", "外来者", "爪牙", "恶魔", "旅行者"] as Team[]).map((teamName) => {
       const teamRoles = availableRoles.filter((role) => role.team === teamName);
       if (!teamRoles.length) return null;
       return (
@@ -3571,6 +3618,7 @@ function Notes({
   roleRecords,
   availableRoles,
   setRoleRecords,
+  onChangeRecordRole,
   onSaveAction,
   onRemoveAction,
   relations,
@@ -3586,6 +3634,7 @@ function Notes({
   roleRecords: RoleRecord[];
   availableRoles: Role[];
   setRoleRecords: (value: RoleRecord[] | ((records: RoleRecord[]) => RoleRecord[])) => void;
+  onChangeRecordRole: (playerId: number | undefined, role: Role) => void;
   onSaveAction: (role: Role, action: RoleAction) => void;
   onRemoveAction: (role: Role, action: RoleAction) => void;
   relations: Relation[];
@@ -3604,6 +3653,9 @@ function Notes({
   const [actionRolePickerId, setActionRolePickerId] = useState<string | null>(null);
   const [editingInfoRecordId, setEditingInfoRecordId] = useState<number | null>(null);
   const [infoDraft, setInfoDraft] = useState("");
+  const revealMobileEditor = (target: HTMLElement) => {
+    window.setTimeout(() => target.scrollIntoView({ behavior: "smooth", block: "center" }), 120);
+  };
   const dayOptions = Array.from({ length: Math.max(5, day) }, (_, index) => index + 1);
   const noteRoles = availableRoles.some((role) => role.id === unknownDemonRole.id) ? availableRoles : [...availableRoles, unknownDemonRole];
   const roleFor = (record: RoleRecord) => noteRoles.find((role) => role.id === record.roleId) || roles.find((role) => role.id === record.roleId);
@@ -3642,7 +3694,14 @@ function Notes({
               <article className="global-role-record" key={record.id}>
                 <div className="global-role-record-heading">
                   <div className="role-record-current">
-                    {role ? <img src={role.image} alt="" /> : <span className="role-record-placeholder"><PlusIcon /></span>}
+                    <button
+                      className="role-record-avatar-button"
+                      aria-label={role ? t("重新选择角色") : t("选择角色")}
+                      title={role ? t("点击头像重新选择角色") : t("选择角色")}
+                      onClick={() => setRoleRecordPickerId((current) => current === record.id ? null : record.id)}
+                    >
+                      {role ? <img src={role.image} alt="" /> : <span className="role-record-placeholder"><PlusIcon /></span>}
+                    </button>
                     <span>
                       <b>{role ? (language === "zh" ? role.zh : `${role.zh} (${role.en})`) : t("尚未选择角色")}</b>
                       {record.text && <small className="role-record-info-preview">{record.text}</small>}
@@ -3650,7 +3709,6 @@ function Notes({
                     </span>
                   </div>
                   <div className="role-record-header-actions">
-                    {!player && <button className="role-record-change" onClick={() => setRoleRecordPickerId((current) => current === record.id ? null : record.id)}>{role ? t("更换角色") : t("选择角色")}</button>}
                     {role && <button className="role-record-add-action" disabled={oncePerGameRoleIds.has(role.id) && Boolean(record.actions?.length)} onClick={() => {
                       const actionId = Date.now();
                       const pattern = actionPatternForRole(role);
@@ -3660,10 +3718,10 @@ function Notes({
                       setEditingActionId(actionId);
                     }}><PlusIcon />{t("添加行动")}</button>}
                     {role && <button className="role-record-add-info" onClick={() => { setInfoDraft(record.text || ""); setEditingInfoRecordId(record.id); }}><PlusIcon />{record.text ? t("编辑信息") : t("添加信息")}</button>}
+                    <button className="role-record-delete" aria-label={t("删除")} title={t("删除")} onClick={() => { if (role) (record.actions || []).forEach((action) => onRemoveAction(role, action)); setRoleRecords((records) => records.filter((item) => item.id !== record.id)); }}><TrashIcon /></button>
                   </div>
-                  <button className="role-record-delete" aria-label={t("删除")} onClick={() => { if (role) (record.actions || []).forEach((action) => onRemoveAction(role, action)); setRoleRecords((records) => records.filter((item) => item.id !== record.id)); }}><TrashIcon /></button>
                 </div>
-                {!player && (!role || roleRecordPickerId === record.id) && (
+                {(!role || roleRecordPickerId === record.id) && (
                   <div className="role-record-role-picker">
                     <RoleSelectionGrid
                       language={language}
@@ -3674,7 +3732,8 @@ function Notes({
                       onSelect={(selectedRole) => {
                         if (role && role.id !== selectedRole.id) (record.actions || []).forEach((action) => onRemoveAction(role, action));
                         const owner = players.find((item) => item.role?.id === selectedRole.id);
-                        setRoleRecords((records) => records.map((item) => item.id === record.id ? { ...item, roleId: selectedRole.id, playerId: owner?.id, actions: role?.id === selectedRole.id ? item.actions : [] } : item));
+                        onChangeRecordRole(record.playerId, selectedRole);
+                        setRoleRecords((records) => records.map((item) => item.id === record.id ? { ...item, roleId: selectedRole.id, playerId: record.playerId ?? owner?.id, actions: role?.id === selectedRole.id ? item.actions : [] } : item));
                         setRoleRecordPickerId(null);
                       }}
                     />
@@ -3682,7 +3741,7 @@ function Notes({
                 )}
                 {editingInfoRecordId === record.id && (
                   <div className="role-record-info-editor">
-                    <textarea value={infoDraft} autoFocus placeholder={t("输入其他补充信息…")} onChange={(event) => setInfoDraft(event.target.value)} />
+                    <textarea value={infoDraft} autoFocus placeholder={t("输入其他补充信息…")} onFocus={(event) => revealMobileEditor(event.currentTarget)} onChange={(event) => setInfoDraft(event.target.value)} />
                     <div>
                       <button onClick={() => { setRoleRecords((records) => records.map((item) => item.id === record.id ? { ...item, text: "" } : item)); setInfoDraft(""); setEditingInfoRecordId(null); }}>{t("删除")}</button>
                       <button onClick={() => { setInfoDraft(record.text || ""); setEditingInfoRecordId(null); }}>{t("取消")}</button>
@@ -3697,7 +3756,7 @@ function Notes({
                     : item));
                   return (
                     <div className="smart-action-editor">
-                      <div className="smart-action-title"><span>{pattern.prompt}</span></div>
+                      {pattern.prompt && <div className="smart-action-title"><span>{pattern.prompt}</span></div>}
                       {[...(record.actions || [])].sort((a, b) => a.day - b.day).map((action) => {
                         const editing = action.saved === false || editingActionId === action.id;
                         const selectedResultRoles = [action.resultRoleId, action.resultRoleId2].map((roleId) => noteRoles.find((item) => item.id === roleId) || roles.find((item) => item.id === roleId));
@@ -3746,11 +3805,11 @@ function Notes({
                               </label>
                             )}
                             <div className="smart-action-row">
-                              <label>{t("天数")}<select value={action.day} onChange={(event) => { const nextDay = Number(event.target.value); updateAction(action.id, { day: nextDay, ...(role.id === "empath" ? { targets: empathNeighboursForDay(record.playerId, nextDay) } : {}) }); }}>{validDays.map((optionDay) => <option value={optionDay} key={optionDay}>{t("第")} {optionDay} {t("天")}</option>)}</select></label>
+                              <label className="smart-action-field smart-action-day-field">{t("天数")}<select value={action.day} onChange={(event) => { const nextDay = Number(event.target.value); updateAction(action.id, { day: nextDay, ...(role.id === "empath" ? { targets: empathNeighboursForDay(record.playerId, nextDay) } : {}) }); }}>{validDays.map((optionDay) => <option value={optionDay} key={optionDay}>{t("第")} {optionDay} {t("天")}</option>)}</select></label>
                               {!action.zeroResult && Array.from({ length: pattern.targetCount }, (_, index) => (
-                                <label key={index}>{t("目标")} {index + 1}{role.id === "unknown-demon" && index > 0 ? `（${t("可选")}）` : ""}<select value={action.targets[index] || ""} onChange={(event) => { const targets = [...action.targets]; targets[index] = Number(event.target.value); updateAction(action.id, { targets }); }}><option value="">—</option>{eligiblePlayers.filter((candidate) => !action.targets.some((target, targetIndex) => targetIndex !== index && target === candidate.id)).map((candidate) => <option value={candidate.id} key={candidate.id}>{candidate.id}{t("号玩家")}{candidate.role ? ` · ${candidate.role.zh}` : ""}</option>)}</select></label>
+                                <label className="smart-action-field" key={index}>{t("目标")} {index + 1}{role.id === "unknown-demon" && index > 0 ? `（${t("可选")}）` : ""}<select value={action.targets[index] || ""} onChange={(event) => { const targets = [...action.targets]; targets[index] = Number(event.target.value); updateAction(action.id, { targets }); }}><option value="">—</option>{eligiblePlayers.filter((candidate) => !action.targets.some((target, targetIndex) => targetIndex !== index && target === candidate.id)).map((candidate) => <option value={candidate.id} key={candidate.id}>{candidate.id}{t("号玩家")}{candidate.role ? ` · ${candidate.role.zh}` : ""}</option>)}</select></label>
                               ))}
-                              {!action.zeroResult && pattern.kind !== "role" && <label>{pattern.valueLabel}{pattern.kind === "yesno" ? <select value={action.value} onChange={(event) => updateAction(action.id, { value: event.target.value })}><option value="是">{t("是")}</option><option value="否">{t("否")}</option><option value="不确定">{t("不确定")}</option></select> : <><input type={pattern.kind === "number" ? "number" : "text"} min={pattern.kind === "number" ? pattern.numberMin ?? 0 : undefined} max={pattern.kind === "number" ? numberMax : undefined} value={action.value} onChange={(event) => { if (pattern.kind !== "number") return updateAction(action.id, { value: event.target.value }); const value = Math.max(pattern.numberMin ?? 0, Math.min(numberMax ?? Number.MAX_SAFE_INTEGER, Number(event.target.value) || 0)); updateAction(action.id, { value: String(value) }); }} />{pattern.kind === "number" && numberMax !== undefined && <small className="smart-number-range">{pattern.numberMin ?? 0}–{numberMax}</small>}</>}</label>}
+                              {!action.zeroResult && pattern.kind !== "role" && <label className="smart-action-field smart-action-value-field">{pattern.valueLabel}{pattern.kind === "yesno" ? <select value={action.value} onChange={(event) => updateAction(action.id, { value: event.target.value })}><option value="是">{t("是")}</option><option value="否">{t("否")}</option><option value="不确定">{t("不确定")}</option></select> : pattern.kind === "number" ? <select value={action.value} onChange={(event) => updateAction(action.id, { value: event.target.value })}>{Array.from({ length: Math.max(1, (numberMax ?? (pattern.numberMin ?? 0)) - (pattern.numberMin ?? 0) + 1) }, (_, index) => (pattern.numberMin ?? 0) + index).map((value) => <option value={value} key={value}>{value}</option>)}</select> : <input type="text" value={action.value} onFocus={(event) => revealMobileEditor(event.currentTarget)} onChange={(event) => updateAction(action.id, { value: event.target.value })} />}</label>}
                               {!action.zeroResult && pattern.kind === "role" && Array.from({ length: pattern.roleResultCount || 1 }, (_, roleIndex) => { const selectedResultRole = selectedResultRoles[roleIndex]; const pickerKey = `${action.id}:${roleIndex}`; return <label key={pickerKey}>{pattern.roleResultCount === 2 ? (roleIndex === 0 ? t("善良角色") : t("邪恶角色")) : pattern.valueLabel}<button className="smart-role-result-trigger" onClick={() => setActionRolePickerId((current) => current === pickerKey ? null : pickerKey)}>{selectedResultRole ? <><img src={selectedResultRole.image} alt="" />{selectedResultRole.zh}</> : t("选择角色")}</button></label>; })}
                             </div>
                             {!action.zeroResult && pattern.kind === "role" && actionRolePickerId?.startsWith(`${action.id}:`) && (() => {
@@ -3765,7 +3824,7 @@ function Notes({
                                 : noteRoles;
                               return <div className="smart-role-result-picker"><RoleSelectionGrid language={language} availableRoles={roleChoices} selectedRoleId={roleIndex === 0 ? action.resultRoleId : action.resultRoleId2} showNames onSelect={(selectedRole) => { updateAction(action.id, roleIndex === 0 ? { resultRoleId: selectedRole.id, value: selectedRole.zh } : { resultRoleId2: selectedRole.id, value2: selectedRole.zh }); setActionRolePickerId(null); }} /></div>;
                             })()}
-                            {(pattern.kind === "text" || role.id === "artist" || pattern.kind === "target") && <label className="smart-action-detail">{role.id === "artist" ? t("提问内容") : role.id === "savant" ? t("信息二") : t("补充记录")}<textarea value={action.detail} onChange={(event) => updateAction(action.id, { detail: event.target.value })} /></label>}
+                            {(pattern.kind === "text" || role.id === "artist" || pattern.kind === "target") && <label className="smart-action-detail">{role.id === "artist" ? t("提问内容") : role.id === "savant" ? t("信息二") : t("补充记录")}<textarea value={action.detail} onFocus={(event) => revealMobileEditor(event.currentTarget)} onChange={(event) => updateAction(action.id, { detail: event.target.value })} /></label>}
                             <p className="smart-action-conclusion"><b>{t("结论")}</b>{roleActionConclusion(role, action, players)}</p>
                             {!actionComplete && <small className="smart-action-validation">{t("请完成必填目标和结果后保存")}</small>}
                             <div className="smart-action-edit-actions"><button onClick={removeAction}>{t("删除本条")}</button><button className="save" disabled={!actionComplete} onClick={() => { onSaveAction(role, action); setEditingActionId(null); setActionRolePickerId(null); }}>{t("保存")}</button></div>
