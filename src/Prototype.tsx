@@ -132,6 +132,12 @@ type Player = {
   marks: Mark[];
   notes: Record<number, string>;
 };
+type RoleRecord = {
+  id: number;
+  roleId?: string;
+  playerId?: number;
+  text: string;
+};
 type Relation = {
   id: number;
   day: number;
@@ -721,6 +727,13 @@ export default function Prototype() {
     }),
     [manager, setManager] = useState(false);
   const [players, setPlayers] = useState(createPlayers(12)),
+    [roleRecords, setRoleRecords] = useState<RoleRecord[]>(() => {
+      try {
+        return JSON.parse(localStorage.getItem("clocktower-role-records") || "[]") as RoleRecord[];
+      } catch {
+        return [];
+      }
+    }),
     [day, setDay] = useState(1),
     [maxDay, setMaxDay] = useState(1),
     [quick, setQuick] = useState<number | null>(null),
@@ -810,6 +823,10 @@ export default function Prototype() {
   useEffect(
     () => localStorage.setItem("clocktower-board", selectedBoardId),
     [selectedBoardId],
+  );
+  useEffect(
+    () => localStorage.setItem("clocktower-role-records", JSON.stringify(roleRecords)),
+    [roleRecords],
   );
   useEffect(
     () =>
@@ -1009,9 +1026,19 @@ export default function Prototype() {
     // Private roles, marks and notes are restored only from this device and
     // this room's namespace. They are never part of game_state.
     try {
-      const privateState = JSON.parse(localStorage.getItem(`private_marks:${room.room_code}`) || "null") as { players?: Player[] } | null;
+      const privateState = JSON.parse(localStorage.getItem(`private_marks:${room.room_code}`) || "null") as { players?: Player[]; roleRecords?: RoleRecord[] } | null;
       if (privateState?.players?.length) setPlayers(privateState.players);
-    } catch { /* a corrupt local cache must not prevent joining */ }
+      const migratedRecords = (privateState?.players || []).flatMap((player) => {
+        const legacyText = Object.values(player.notes || {}).filter(Boolean).join("\n").trim();
+        return player.role && legacyText
+          ? [{ id: Date.now() + player.id, roleId: player.role.id, playerId: player.id, text: legacyText }]
+          : [];
+      });
+      setRoleRecords(privateState?.roleRecords?.length ? privateState.roleRecords : migratedRecords);
+    } catch {
+      setRoleRecords([]);
+      /* a corrupt local cache must not prevent joining */
+    }
     sharedRoomRef.current = null;
     applySharedRoom(room);
     setRoomNameDraft(roomNameSuffix(room));
@@ -1199,8 +1226,8 @@ export default function Prototype() {
   useEffect(() => () => unsubscribeSharedRoom.current?.(), []);
   useEffect(() => {
     if (!sharedRoom?.room_code) return;
-    localStorage.setItem(`private_marks:${sharedRoom.room_code}`, JSON.stringify({ players }));
-  }, [sharedRoom?.room_code, players]);
+    localStorage.setItem(`private_marks:${sharedRoom.room_code}`, JSON.stringify({ players, roleRecords }));
+  }, [sharedRoom?.room_code, players, roleRecords]);
   useEffect(() => {
     const hasPublicGameData = day > 1 || relations.some((relation) => relation.type === "nominate") || deaths.length > 0 || peacefulDays.length > 0;
     if (!started || sharedRoomRef.current || !hasPublicGameData || autoCreatingSharedRoom.current) return;
@@ -1611,6 +1638,7 @@ export default function Prototype() {
     setToast("日期已切换");
   };
   const selected = players.find((p) => p.id === notePlayer);
+  const selectedRoleRecord = roleRecords.find((record) => record.playerId === notePlayer);
   const editPlayerDay = (playerId: number, recordDay: number) => {
     setDay(recordDay);
     setNotePlayer(playerId);
@@ -1630,6 +1658,7 @@ export default function Prototype() {
   const startGame = () => {
     setStartOnNewGame(false);
     setPlayers(createPlayers(playerCount));
+    setRoleRecords([]);
     setDay(1);
     setMaxDay(1);
     setRelations([]);
@@ -1750,6 +1779,9 @@ export default function Prototype() {
               <Notes
                 language={language}
                 players={players}
+                roleRecords={roleRecords}
+                availableRoles={boardRoles}
+                setRoleRecords={setRoleRecords}
                 relations={relations}
                 deaths={deaths}
                 peacefulDays={peacefulDays}
@@ -1769,6 +1801,9 @@ export default function Prototype() {
                 initialTab="roles"
                 language={language}
                 players={players}
+                roleRecords={roleRecords}
+                availableRoles={boardRoles}
+                setRoleRecords={setRoleRecords}
                 relations={relations}
                 deaths={deaths}
                 peacefulDays={peacefulDays}
@@ -1786,6 +1821,9 @@ export default function Prototype() {
                 initialTab="votes"
                 language={language}
                 players={players}
+                roleRecords={roleRecords}
+                availableRoles={boardRoles}
+                setRoleRecords={setRoleRecords}
                 relations={relations}
                 deaths={deaths}
                 peacefulDays={peacefulDays}
@@ -2896,6 +2934,12 @@ export default function Prototype() {
                           setPlayers((ps) =>
                             ps.map((p) => (p.id === rolePlayer ? { ...p, role: r } : p)),
                           );
+                          setRoleRecords((records) => {
+                            const waiting = records.find((record) => record.roleId === r.id && record.playerId === undefined);
+                            return waiting && rolePlayer !== null
+                              ? records.map((record) => record.id === waiting.id ? { ...record, playerId: rolePlayer } : record)
+                              : records;
+                          });
                           setToast(`已选择${r.zh}`);
                         }}
                       >
@@ -2963,6 +3007,14 @@ export default function Prototype() {
               onClick={() => {
                 if (rolePlayer === null) return;
                 const playerId = rolePlayer;
+                const playerRole = players.find((player) => player.id === playerId)?.role;
+                if (!playerRole) {
+                  setToast(t("请先选择角色"));
+                  return;
+                }
+                setRoleRecords((records) => records.some((record) => record.playerId === playerId)
+                  ? records
+                  : [...records, { id: Date.now(), roleId: playerRole.id, playerId, text: "" }]);
                 setRolePlayer(null);
                 setNotePlayer(playerId);
               }}
@@ -2984,8 +3036,8 @@ export default function Prototype() {
       <BottomSheet
         open={notePlayer !== null}
         onOpenChange={(o) => !o && setNotePlayer(null)}
-        title={`${language === "zh" ? "玩家" : "Player"} ${notePlayer || ""} · ${language === "zh" ? `第 ${day} 天` : `Day ${day}`}`}
-        description={t("单独玩家笔记")}
+        title={`${language === "zh" ? "玩家" : "Player"} ${notePlayer || ""}${selected?.role ? ` · ${language === "zh" ? selected.role.zh : selected.role.en}` : ""}`}
+        description={t("角色笔记 · 不区分天数")}
         snap={0.88}
       >
         <button
@@ -3009,31 +3061,23 @@ export default function Prototype() {
                 )
               }
             />
-            <label>{t("当天记录")}</label>
+            <label>{t("角色记录")}</label>
             <KeyboardTextarea
-              value={selected.notes[day] || ""}
+              value={selectedRoleRecord?.text || ""}
               placeholder={t("记录查验、发言或推理…")}
               onChange={(e) =>
-                setPlayers((ps) =>
-                  ps.map((p) =>
-                    p.id === notePlayer
-                      ? { ...p, notes: { ...p.notes, [day]: e.target.value } }
-                      : p,
-                  ),
-                )
+                setRoleRecords((records) => {
+                  const existing = records.find((record) => record.playerId === notePlayer);
+                  if (existing) return records.map((record) => record.id === existing.id ? { ...record, text: e.target.value } : record);
+                  return selected.role && notePlayer !== null
+                    ? [...records, { id: Date.now(), roleId: selected.role.id, playerId: notePlayer, text: e.target.value }]
+                    : records;
+                })
               }
             />
             <div className="editor-actions">
               <button
-                onClick={() =>
-                  setPlayers((ps) =>
-                    ps.map((p) =>
-                      p.id === notePlayer
-                        ? { ...p, notes: { ...p.notes, [day]: "" } }
-                        : p,
-                    ),
-                  )
-                }
+                onClick={() => setRoleRecords((records) => records.map((record) => record.playerId === notePlayer ? { ...record, text: "" } : record))}
               >
                 {t("清除")}
               </button>
@@ -3108,6 +3152,9 @@ export default function Prototype() {
           <Notes
             language={language}
             players={players}
+            roleRecords={roleRecords}
+            availableRoles={boardRoles}
+            setRoleRecords={setRoleRecords}
             relations={relations}
             deaths={deaths}
             peacefulDays={peacefulDays}
@@ -3152,6 +3199,106 @@ function Tabs({
   );
 }
 function Notes({
+  initialTab,
+  language,
+  players,
+  roleRecords,
+  availableRoles,
+  setRoleRecords,
+  relations,
+  deaths,
+  peacefulDays,
+  togglePeaceful,
+  day,
+  alwaysShowDailyRoles,
+}: {
+  initialTab?: "roles" | "votes";
+  language: Language;
+  players: Player[];
+  roleRecords: RoleRecord[];
+  availableRoles: Role[];
+  setRoleRecords: (value: RoleRecord[] | ((records: RoleRecord[]) => RoleRecord[])) => void;
+  relations: Relation[];
+  deaths: DeathEvent[];
+  peacefulDays: number[];
+  togglePeaceful: (d: number) => void;
+  day: number;
+  alwaysShowDailyRoles: boolean;
+  edit: (playerId: number, recordDay: number) => void;
+  clear: (playerId: number, recordDay: number) => void;
+}) {
+  const t = (text: string) => translate(language, text);
+  const [tab, setTab] = useState<"roles" | "votes">(initialTab || "roles");
+  const roleFor = (record: RoleRecord) => availableRoles.find((role) => role.id === record.roleId) || roles.find((role) => role.id === record.roleId);
+  const roleRecordsList = (
+    <section className="global-role-records">
+      <header>
+        <div><b>{t("角色记录")}</b><small>{t("记录跟随角色；分配给玩家后自动绑定该玩家")}</small></div>
+        <button onClick={() => setRoleRecords((records) => [...records, { id: Date.now(), text: "" }])}><PlusIcon />{t("添加角色")}</button>
+      </header>
+      {roleRecords.length ? (
+        <div className="global-role-record-list">
+          {roleRecords.map((record) => {
+            const role = roleFor(record);
+            const player = players.find((item) => item.id === record.playerId);
+            return (
+              <article className="global-role-record" key={record.id}>
+                <div className="global-role-record-heading">
+                  {role ? <img src={role.image} alt="" /> : <span className="role-record-placeholder"><PlusIcon /></span>}
+                  <select
+                    aria-label={t("选择角色")}
+                    value={record.roleId || ""}
+                    disabled={record.playerId !== undefined}
+                    onChange={(event) => {
+                      const roleId = event.target.value || undefined;
+                      const owner = players.find((item) => item.role?.id === roleId);
+                      setRoleRecords((records) => records.map((item) => item.id === record.id ? { ...item, roleId, playerId: owner?.id } : item));
+                    }}
+                  >
+                    <option value="">{t("选择一个角色")}</option>
+                    {availableRoles.map((item) => <option value={item.id} key={item.id}>{language === "zh" ? item.zh : `${item.zh} (${item.en})`}</option>)}
+                  </select>
+                  {player && <em>{t("已绑定玩家")} {player.id}{player.name ? ` · ${player.name}` : ""}</em>}
+                  <button aria-label={t("删除")} onClick={() => setRoleRecords((records) => records.filter((item) => item.id !== record.id))}><TrashIcon /></button>
+                </div>
+                <textarea
+                  value={record.text}
+                  disabled={!record.roleId}
+                  placeholder={record.roleId ? t("记录该角色的所有信息…") : t("请先选择角色")}
+                  onChange={(event) => setRoleRecords((records) => records.map((item) => item.id === record.id ? { ...item, text: event.target.value } : item))}
+                />
+              </article>
+            );
+          })}
+        </div>
+      ) : <p className="empty">{t("还没有角色记录，点击添加角色开始记录")}</p>}
+    </section>
+  );
+  return (
+    <div className="notes-panel">
+      <div className="notes-tabs">
+        <button className={tab === "roles" ? "active" : ""} onClick={() => setTab("roles")}>{t("角色记录")}</button>
+        <button className={tab === "votes" ? "active" : ""} onClick={() => setTab("votes")}>{t("每日记录")}</button>
+      </div>
+      {tab === "roles" ? roleRecordsList : (
+        <VoteNotes
+          language={language}
+          players={players}
+          roleRecords={roleRecords}
+          availableRoles={availableRoles}
+          relations={relations}
+          deaths={deaths}
+          peacefulDays={peacefulDays}
+          togglePeaceful={togglePeaceful}
+          day={day}
+          alwaysShowDailyRoles={alwaysShowDailyRoles}
+        />
+      )}
+    </div>
+  );
+}
+
+function LegacyNotes({
   initialTab,
   language,
   players,
@@ -3373,6 +3520,8 @@ function Notes({
 function VoteNotes({
   language,
   players,
+  roleRecords = [],
+  availableRoles = [],
   relations,
   deaths,
   peacefulDays,
@@ -3382,6 +3531,8 @@ function VoteNotes({
 }: {
   language: Language;
   players: Player[];
+  roleRecords?: RoleRecord[];
+  availableRoles?: Role[];
   relations: Relation[];
   deaths: DeathEvent[];
   peacefulDays: number[];
@@ -3459,6 +3610,23 @@ function VoteNotes({
   ).sort((a, b) => a - b);
   return (
     <div className="vote-notes">
+      <section className="daily-role-records">
+        <h3>{t("角色记录")}</h3>
+        {roleRecords.length ? roleRecords.map((record) => {
+          const role = availableRoles.find((item) => item.id === record.roleId) || roles.find((item) => item.id === record.roleId);
+          const player = players.find((item) => item.id === record.playerId);
+          if (!role) return null;
+          return (
+            <article className="daily-role-record" key={record.id}>
+              <img src={role.image} alt="" />
+              <div>
+                <b>{language === "zh" ? role.zh : `${role.zh} (${role.en})`}{player ? ` · ${player.id}${t("号玩家")}` : ""}</b>
+                <p>{record.text || t("尚未填写记录")}</p>
+              </div>
+            </article>
+          );
+        }) : <p className="empty">{t("还没有角色记录")}</p>}
+      </section>
       <section className="relation-insight">
         <span>{t("关系推测")}</span>
         <b>
@@ -3604,23 +3772,26 @@ function VoteNotes({
                     b = players.find((p) => p.id === r.to);
                   return (
                     <article className="daily-vote-record" key={r.id}>
-                      <b>
-                        {r.from}
-                        {a?.role
-                          ? ` ${language === "zh" ? a.role.zh : `${a.role.zh} (${a.role.en})`}`
-                          : ""}{" "}
-                        → {r.to}
-                        {b?.role
-                          ? ` ${language === "zh" ? b.role.zh : `${b.role.zh} (${b.role.en})`}`
-                          : ""}
+                      <b className="nomination-sentence">
+                        {r.from}{t("号")}{a?.role ? (language === "zh" ? a.role.zh : a.role.en) : t("玩家")}
+                        {t("提名")}
+                        {r.to}{t("号")}{b?.role ? (language === "zh" ? b.role.zh : b.role.en) : t("玩家")}
                       </b>
-                      <p>
-                        {t("投票")}{" "}
-                        {r.votes?.join("、") ||
-                          (language === "zh" ? "无" : "None")} ·{" "}
-                        {r.votes?.length || 0}
-                        {t("票")} {r.executed && <strong>· {t("标记处决")}</strong>}
-                      </p>
+                      <div className="vote-player-row">
+                        {(r.votes || []).length ? (r.votes || []).map((playerId) => {
+                          const voter = players.find((player) => player.id === playerId);
+                          return (
+                            <span className="vote-player-avatar" key={playerId} title={`${playerId}${t("号玩家")}`}>
+                              <img src={voter?.role?.image || defaultPortrait(playerId)} alt="" />
+                              <b>{playerId}</b>
+                            </span>
+                          );
+                        }) : <span className="no-voters">{t("无人投票")}</span>}
+                      </div>
+                      <footer>
+                        <strong>{t("共")} {r.votes?.length || 0} {t("票")}</strong>
+                        <span className={r.executed ? "executed" : "not-executed"}>{r.executed ? t("标记死亡") : t("未标记死亡")}</span>
+                      </footer>
                     </article>
                   );
                 })

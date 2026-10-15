@@ -4722,6 +4722,48 @@ body,
   gap: 3px;
   padding-block: 7px;
 }
+
+/* Role-first notes: records exist independently until their role is assigned. */
+.global-role-records { display:grid; gap:12px; }
+.global-role-records > header { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.global-role-records > header > div { display:grid; gap:2px; }
+.global-role-records > header small { color:#8a7565; font-size:10px; }
+.global-role-records > header button { min-height:38px; display:inline-flex; align-items:center; gap:5px; padding:0 12px; border:1px solid #c8aa7c; border-radius:9px; background:#fff7e7; color:#792827; font-weight:800; }
+.global-role-record-list { display:grid; gap:9px; }
+.player-notes .global-role-record { display:grid; gap:8px; padding:10px; border:1px solid #ddc9a9; border-radius:11px; background:#fffaf0; }
+.global-role-record-heading { display:grid; grid-template-columns:38px minmax(0,1fr) auto auto; align-items:center; gap:8px; }
+.global-role-record-heading > img,.role-record-placeholder { width:38px; height:38px; display:grid; place-items:center; border-radius:50%; object-fit:contain; background:#eee5d7; }
+.global-role-record-heading select { width:100%; min-width:0; height:38px; padding:0 9px; border:1px solid #cdb595; border-radius:8px; background:#fff8e9; color:#52382c; }
+.global-role-record-heading em { color:#7a685b; font-size:10px; font-style:normal; white-space:nowrap; }
+.global-role-record-heading > button { width:34px; height:34px; display:grid; place-items:center; border:0; border-radius:8px; background:#f6e9d8; color:#8a2929; }
+.global-role-record textarea { width:100%; min-height:88px; resize:vertical; box-sizing:border-box; padding:10px; border:1px solid #d5bd98; border-radius:9px; background:#fffdf7; color:#4d382d; font:inherit; line-height:1.55; }
+.global-role-record textarea:disabled { opacity:.62; }
+.vote-notes { display:flex; flex-direction:column; gap:12px; }
+.vote-notes .daily-notes-section { display:none; }
+.vote-notes .relation-insight { order:99; margin-top:8px; }
+.daily-role-records { order:-1; display:grid; gap:7px; }
+.daily-role-records > h3 { margin:0; }
+.vote-notes .daily-role-record { display:flex; align-items:center; gap:9px; padding:7px 9px; border:1px solid #ddccb1; border-radius:9px; background:#fffaf0; }
+.daily-role-record > img { width:34px; height:34px; flex:none; border-radius:50%; object-fit:contain; }
+.daily-role-record > div { min-width:0; display:grid; gap:2px; }
+.vote-notes .daily-role-record b { font-size:12px; }
+.vote-notes .daily-role-record p { margin:0; color:#6d5036; font-size:11px; line-height:1.45; overflow-wrap:anywhere; }
+.vote-notes .daily-vote-record { display:grid; gap:10px; padding:11px; border:1px solid #dbc7a5; border-radius:11px; background:#fffaf0; }
+.vote-notes .daily-vote-record .nomination-sentence { font-size:15px; line-height:1.45; color:#4a3025; }
+.vote-player-row { display:flex; align-items:center; flex-wrap:wrap; gap:7px; min-height:42px; }
+.vote-player-avatar { position:relative; width:40px; height:40px; display:block; }
+.vote-player-avatar img { width:40px; height:40px; box-sizing:border-box; border:2px solid #8d6b4d; border-radius:50%; object-fit:contain; background:#eee5d7; }
+.vote-notes .vote-player-avatar > b { position:absolute; top:-5px; right:-4px; min-width:18px; height:18px; display:grid; place-items:center; padding:0 2px; border-radius:999px; background:#792522; color:#fff5df; font-size:9px; line-height:1; }
+.no-voters { color:#8c7767; font-size:11px; }
+.daily-vote-record > footer { display:flex; align-items:center; justify-content:space-between; gap:10px; padding-top:8px; border-top:1px solid rgba(123,89,57,.16); }
+.daily-vote-record > footer strong { color:#4c3529; font-size:12px; }
+.daily-vote-record > footer span { padding:3px 7px; border-radius:6px; font-size:10px; }
+.daily-vote-record > footer .executed { background:#8e292b; color:#fff; }
+.daily-vote-record > footer .not-executed { background:#eee4d5; color:#786557; }
+@media (max-width:430px) {
+  .global-role-record-heading { grid-template-columns:38px minmax(0,1fr) auto; }
+  .global-role-record-heading em { grid-column:2; white-space:normal; }
+}
 @media (min-width: 1024px) {
   html,
   body,
