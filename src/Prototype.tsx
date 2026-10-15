@@ -3339,7 +3339,7 @@ export default function Prototype() {
         onOpenChange={(o) => !o && setNotePlayer(null)}
         title={`${language === "zh" ? "玩家" : "Player"} ${notePlayer || ""}${selected?.role ? ` · ${language === "zh" ? selected.role.zh : selected.role.en}` : ""}`}
         description={t("角色笔记 · 不区分天数")}
-        snap={0.88}
+        snap={0.62}
       >
         <button
           aria-label={t("关闭")}

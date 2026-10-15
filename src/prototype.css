@@ -559,6 +559,28 @@
     max-height: min(88dvh, calc(100dvh - env(safe-area-inset-top))) !important;
     border-radius: 20px 20px 0 0 !important;
   }
+  .bottom-sheet:has(.note-editor) {
+    height: auto !important;
+    max-height: min(62dvh, calc(100dvh - env(safe-area-inset-top))) !important;
+  }
+  .bottom-sheet:has(.note-editor) .sheet-header {
+    padding-right: 62px;
+  }
+  .bottom-sheet:has(.note-editor) .desktop-modal-close {
+    position: absolute;
+    z-index: 8;
+    top: 28px;
+    right: 16px;
+    display: grid;
+    width: 34px;
+    height: 34px;
+    place-items: center;
+    padding: 0;
+    border: 1px solid rgba(92, 64, 43, 0.22);
+    border-radius: 9px;
+    background: #f8efe0;
+    color: #624535;
+  }
 }
 
 /* Final web breakpoints. Kept last so legacy prototype rules cannot reintroduce
