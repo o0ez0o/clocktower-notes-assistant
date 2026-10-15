@@ -3761,18 +3761,18 @@ function VoteNotes({
     <div className="vote-notes">
       <section className="daily-role-records">
         <h3>{t("角色记录")}</h3>
-        {roleRecords.length ? roleRecords.map((record) => {
+        {roleRecords.some((record) => record.playerId !== undefined && record.roleId) ? roleRecords.map((record) => {
           const role = availableRoles.find((item) => item.id === record.roleId) || roles.find((item) => item.id === record.roleId);
           const player = players.find((item) => item.id === record.playerId);
-          if (!role) return null;
+          if (!role || !player) return null;
           return (
             <article className="daily-role-record" key={record.id}>
+              <strong className="daily-role-player-number">{player.id}</strong>
               <img src={role.image} alt="" />
               <div>
-                <b>{language === "zh" ? role.zh : `${role.zh} (${role.en})`}{player ? ` · ${player.id}${t("号玩家")}` : ""}</b>
+                <b>{language === "zh" ? role.zh : `${role.zh} (${role.en})`}</b>
                 {[...(record.actions || [])].sort((a, b) => a.day - b.day).map((action) => <p className="daily-smart-action" key={action.id}><em>{t("第")} {action.day} {t("天")}</em>{roleActionConclusion(role, action, players)}</p>)}
-                {record.text && <p>{record.text}</p>}
-                {!record.text && !(record.actions || []).length && <p>{t("尚未填写记录")}</p>}
+                {!(record.actions || []).length && <p>{t("尚未填写记录")}</p>}
               </div>
             </article>
           );
@@ -3800,30 +3800,7 @@ function VoteNotes({
             (d) => d.day === recordDay && d.reason !== "revival",
           ).length,
           nominators = [...new Set(rs.map((relation) => relation.from))],
-          nominees = [...new Set(rs.map((relation) => relation.to))],
-          hasOrganicDayRecord = (player: Player) => {
-            const hasManualNote = Boolean(player.notes[recordDay]?.trim());
-            const hasDayEvent = deaths.some(
-              (event) => event.day === recordDay && event.playerId === player.id,
-            );
-            const hasDayStatus =
-              recordDay === day &&
-              (player.marks.includes("poison") ||
-                player.marks.includes("madness"));
-            return hasManualNote || hasDayEvent || hasDayStatus;
-          },
-          isFirstNightInfoReminder = (player: Player) =>
-            alwaysShowDailyRoles &&
-            recordDay === 1 &&
-            Boolean(player.role && firstNightInformationRoleIds.has(player.role.id)),
-          dayPlayers = players.filter(
-            (player) => hasOrganicDayRecord(player) || isFirstNightInfoReminder(player),
-          ),
-          dayRoleActions = roleRecords.flatMap((record) => {
-            const role = availableRoles.find((item) => item.id === record.roleId) || roles.find((item) => item.id === record.roleId);
-            const player = players.find((item) => item.id === record.playerId);
-            return role ? (record.actions || []).filter((action) => action.day === recordDay).map((action) => ({ record, role, player, action })) : [];
-          });
+          nominees = [...new Set(rs.map((relation) => relation.to))];
         return (
           <section className="vote-day-group" key={recordDay}>
             <div className="day-vote-header">
@@ -3848,88 +3825,6 @@ function VoteNotes({
                 )}
                 <span>{t("平安夜")}</span>
               </button>
-            </div>
-            {dayRoleActions.length > 0 && (
-              <div className="day-smart-actions">
-                <h4>{t("角色行动")}</h4>
-                {dayRoleActions.map(({ role, player, action }) => (
-                  <article key={action.id}>
-                    <img src={role.image} alt="" />
-                    <div><b>{player ? `${player.id}${t("号玩家")} · ` : ""}{role.zh}</b><p>{roleActionConclusion(role, action, players)}</p></div>
-                  </article>
-                ))}
-              </div>
-            )}
-            <div className="daily-notes-section">
-              <h4>{t("当天笔记")}</h4>
-              {dayPlayers.length ? (
-                <div className="daily-player-notes">
-                  {dayPlayers.map((player) => {
-                    const dayEvents = deaths.filter(
-                      (event) =>
-                        event.day === recordDay && event.playerId === player.id,
-                    );
-                    return (
-                      <article
-                        className={`daily-player-note ${
-                          isFirstNightInfoReminder(player) && !hasOrganicDayRecord(player)
-                            ? "first-night-reminder"
-                            : ""
-                        }`}
-                        key={player.id}
-                      >
-                        <img
-                          src={player.role?.image || defaultPortrait(player.id)}
-                          alt=""
-                        />
-                        <div className="daily-player-note-copy">
-                          <div className="daily-player-note-meta">
-                            <b>
-                              {player.id}{player.name ? ` ${player.name}` : ""}
-                            </b>
-                            {player.role && (
-                              <>
-                                <span>·</span>
-                                <span>
-                                  {language === "zh"
-                                    ? player.role.zh
-                                    : `${player.role.zh} (${player.role.en})`}
-                                </span>
-                              </>
-                            )}
-                            {isFirstNightInfoReminder(player) && !hasOrganicDayRecord(player) && (
-                              <i className="first-night-info-tag">{t("首夜信息")}</i>
-                            )}
-                            {player.marks.includes("drunk") && (
-                              <i className="record-tag tag-drunk">{t("酒鬼")}</i>
-                            )}
-                            {recordDay === day && player.marks.includes("poison") && (
-                              <i className="record-tag poison">{t("中毒")}</i>
-                            )}
-                            {recordDay === day && player.marks.includes("madness") && (
-                              <i className="record-tag madness">{t("疯狂")}</i>
-                            )}
-                            {dayEvents.some(
-                              (event) =>
-                                event.reason === "execution" || event.reason === "manual",
-                            ) && (
-                              <i className="record-tag tag-death">{t("死亡")}</i>
-                            )}
-                            {dayEvents.some((event) => event.reason === "revival") && (
-                              <i className="record-tag tag-revival">{t("复活")}</i>
-                            )}
-                          </div>
-                          {player.notes[recordDay] && (
-                            <p>{player.notes[recordDay]}</p>
-                          )}
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="empty">{t("当天还没有玩家笔记")}</p>
-              )}
             </div>
             <div className="daily-votes-section">
               <h4>{t("当天投票记录")}</h4>
