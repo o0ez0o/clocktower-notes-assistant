@@ -147,10 +147,11 @@ type RoleAction = {
   detail: string;
   resultRoleId?: string;
   saved?: boolean;
+  appliedTargets?: number[];
 };
 type RoleActionPattern = {
   kind: "yesno" | "number" | "role" | "text" | "target";
-  targetCount: 0 | 1 | 2;
+  targetCount: 0 | 1 | 2 | 3;
   prompt: string;
   valueLabel: string;
 };
@@ -466,6 +467,15 @@ const roles: Role[] = [
     ].includes(id) ? abilityZh : undefined,
   })),
 ];
+const unknownDemonRole: Role = {
+  id: "unknown-demon",
+  zh: "未知恶魔（？）",
+  en: "Unknown Demon (?)",
+  team: "恶魔",
+  edition: "tb",
+  image: assetUrl("clocktower/marks/demon.png"),
+  abilityZh: "用于记录尚未确定具体角色的恶魔行动。每晚可以记录一至三名可能的死亡目标。",
+};
 const zhenHuanReferences: Array<{ name: string; actor?: string; file?: string; note?: string }> = [
   { name: "浣碧", actor: "蓝盈莹", file: "huanbi-source.jpg" },
   { name: "玉娆", actor: "徐璐", file: "yurao-source.jpg" },
@@ -682,6 +692,8 @@ const createPlayers = (count: number): Player[] =>
   }));
 const actionPatternForRole = (role: Role): RoleActionPattern => {
   const ability = role.abilityZh || "";
+  if (role.id === "unknown-demon") return { kind: "target", targetCount: 3, prompt: "记录本夜恶魔击杀目标（最多三名）", valueLabel: "击杀结果" };
+  if (role.id === "poisoner" || (/中毒/.test(ability) && /选择/.test(ability))) return { kind: "target", targetCount: 1, prompt: "选择本夜被施加中毒的玩家", valueLabel: "中毒目标" };
   if (role.id === "fortuneteller") return { kind: "yesno", targetCount: 2, prompt: "选择本夜查验的两名玩家", valueLabel: "是否有恶魔" };
   if (role.id === "chef") return { kind: "number", targetCount: 0, prompt: "记录首夜得到的信息", valueLabel: "相邻邪恶玩家对数" };
   if (role.id === "artist") return { kind: "yesno", targetCount: 0, prompt: "记录向说书人提出的问题", valueLabel: "说书人回答" };
@@ -702,6 +714,8 @@ const roleActionConclusion = (role: Role, action: RoleAction, players: Player[])
     : `${targetText || "所选玩家"}均未被查验为恶魔。`;
   if (role.id === "chef") return `场上有 ${action.value || "0"} 对相邻的邪恶玩家。`;
   if (role.id === "artist") return `艺术家提问“${action.detail || "未填写问题"}”，说书人的回答是“${action.value || "未填写"}”。`;
+  if (role.id === "poisoner" || (/中毒/.test(role.abilityZh || "") && /选择/.test(role.abilityZh || ""))) return `${targetText || "所选玩家"}在第 ${action.day} 天被标记为中毒。`;
+  if (role.team === "恶魔") return `${targetText || "所选玩家"}在第 ${action.day} 天被标记为死亡。`;
   const pattern = actionPatternForRole(role);
   if (pattern.kind === "number") return `${role.zh}获得数字 ${action.value || "未填写"}${targetText ? `，关联${targetText}` : ""}。`;
   if (pattern.kind === "yesno") return `${role.zh}${targetText ? `查验${targetText}` : "获得信息"}，结果为“${action.value || "未填写"}”。`;
@@ -1640,6 +1654,44 @@ export default function Prototype() {
     setPeacefulDays((ds) => ds.filter((d) => d !== day));
     setToast(`第 ${day} 天已保存 · 玩家 ${target} 处决死亡，幽灵票可用`);
   };
+  const saveRoleAction = (role: Role, action: RoleAction) => {
+    const previousTargets = action.appliedTargets || [];
+    const nextTargets = action.targets.filter(Boolean);
+    const appliesPoison = role.id === "poisoner" || (/中毒/.test(role.abilityZh || "") && /选择/.test(role.abilityZh || ""));
+    const appliesDeath = role.team === "恶魔";
+    if (appliesPoison) {
+      setPlayers((items) => items.map((player) => {
+        const withoutPrevious = previousTargets.includes(player.id) ? player.marks.filter((mark) => mark !== "poison") : player.marks;
+        return nextTargets.includes(player.id) && !withoutPrevious.includes("poison") ? { ...player, marks: [...withoutPrevious, "poison"] } : { ...player, marks: withoutPrevious };
+      }));
+    }
+    if (appliesDeath) {
+      const effectIds = [0, 1, 2].map((index) => action.id * 4 + index);
+      setDeaths((items) => [
+        ...items.filter((event) => !effectIds.includes(event.id)),
+        ...nextTargets.slice(0, 3).map((playerId, index) => ({ id: effectIds[index], day: action.day, playerId, reason: "manual" as const })),
+      ]);
+      setPlayers((items) => items.map((player) => {
+        const withoutPrevious = previousTargets.includes(player.id) ? player.marks.filter((mark) => mark !== "deadVote" && mark !== "deadSpent") : player.marks;
+        return nextTargets.includes(player.id) && !withoutPrevious.includes("deadVote") ? { ...player, marks: [...withoutPrevious, "deadVote"] } : { ...player, marks: withoutPrevious };
+      }));
+    }
+    setRoleRecords((records) => records.map((record) => ({
+      ...record,
+      actions: (record.actions || []).map((entry) => entry.id === action.id ? { ...entry, saved: true, appliedTargets: (appliesPoison || appliesDeath) ? nextTargets : [] } : entry),
+    })));
+    setToast(appliesPoison ? `已将${nextTargets.join("、")}号玩家标记为中毒` : appliesDeath ? `已记录第 ${action.day} 天死亡目标` : "角色行动已保存");
+  };
+  const removeRoleActionEffects = (role: Role, action: RoleAction) => {
+    const appliedTargets = action.appliedTargets || [];
+    const appliesPoison = role.id === "poisoner" || (/中毒/.test(role.abilityZh || "") && /选择/.test(role.abilityZh || ""));
+    if (appliesPoison) setPlayers((items) => items.map((player) => appliedTargets.includes(player.id) ? { ...player, marks: player.marks.filter((mark) => mark !== "poison") } : player));
+    if (role.team === "恶魔") {
+      const effectIds = [0, 1, 2].map((index) => action.id * 4 + index);
+      setDeaths((items) => items.filter((event) => !effectIds.includes(event.id)));
+      setPlayers((items) => items.map((player) => appliedTargets.includes(player.id) ? { ...player, marks: player.marks.filter((mark) => mark !== "deadVote" && mark !== "deadSpent") } : player));
+    }
+  };
   const resolveDeathChange = (mode: "correction" | "revival") => {
     if (deathDecisionPlayer === null) return;
     const playerId = deathDecisionPlayer;
@@ -1838,6 +1890,8 @@ export default function Prototype() {
                 roleRecords={roleRecords}
                 availableRoles={boardRoles}
                 setRoleRecords={setRoleRecords}
+                onSaveAction={saveRoleAction}
+                onRemoveAction={removeRoleActionEffects}
                 relations={relations}
                 deaths={deaths}
                 peacefulDays={peacefulDays}
@@ -1860,6 +1914,8 @@ export default function Prototype() {
                 roleRecords={roleRecords}
                 availableRoles={boardRoles}
                 setRoleRecords={setRoleRecords}
+                onSaveAction={saveRoleAction}
+                onRemoveAction={removeRoleActionEffects}
                 relations={relations}
                 deaths={deaths}
                 peacefulDays={peacefulDays}
@@ -1880,6 +1936,8 @@ export default function Prototype() {
                 roleRecords={roleRecords}
                 availableRoles={boardRoles}
                 setRoleRecords={setRoleRecords}
+                onSaveAction={saveRoleAction}
+                onRemoveAction={removeRoleActionEffects}
                 relations={relations}
                 deaths={deaths}
                 peacefulDays={peacefulDays}
@@ -3184,6 +3242,8 @@ export default function Prototype() {
             roleRecords={roleRecords}
             availableRoles={boardRoles}
             setRoleRecords={setRoleRecords}
+            onSaveAction={saveRoleAction}
+            onRemoveAction={removeRoleActionEffects}
             relations={relations}
             deaths={deaths}
             peacefulDays={peacefulDays}
@@ -3297,6 +3357,8 @@ function Notes({
   roleRecords,
   availableRoles,
   setRoleRecords,
+  onSaveAction,
+  onRemoveAction,
   relations,
   deaths,
   peacefulDays,
@@ -3310,6 +3372,8 @@ function Notes({
   roleRecords: RoleRecord[];
   availableRoles: Role[];
   setRoleRecords: (value: RoleRecord[] | ((records: RoleRecord[]) => RoleRecord[])) => void;
+  onSaveAction: (role: Role, action: RoleAction) => void;
+  onRemoveAction: (role: Role, action: RoleAction) => void;
   relations: Relation[];
   deaths: DeathEvent[];
   peacefulDays: number[];
@@ -3325,7 +3389,8 @@ function Notes({
   const [editingActionId, setEditingActionId] = useState<number | null>(null);
   const [actionRolePickerId, setActionRolePickerId] = useState<number | null>(null);
   const dayOptions = Array.from({ length: Math.max(5, day) }, (_, index) => index + 1);
-  const roleFor = (record: RoleRecord) => availableRoles.find((role) => role.id === record.roleId) || roles.find((role) => role.id === record.roleId);
+  const noteRoles = availableRoles.some((role) => role.id === unknownDemonRole.id) ? availableRoles : [...availableRoles, unknownDemonRole];
+  const roleFor = (record: RoleRecord) => noteRoles.find((role) => role.id === record.roleId) || roles.find((role) => role.id === record.roleId);
   const roleRecordsList = (
     <section className="global-role-records">
       <header>
@@ -3352,19 +3417,20 @@ function Notes({
                       setEditingActionId(actionId);
                     }}><PlusIcon />{t("添加行动")}</button>}
                   </div>
-                  <button className="role-record-delete" aria-label={t("删除")} onClick={() => setRoleRecords((records) => records.filter((item) => item.id !== record.id))}><TrashIcon /></button>
+                  <button className="role-record-delete" aria-label={t("删除")} onClick={() => { if (role) (record.actions || []).forEach((action) => onRemoveAction(role, action)); setRoleRecords((records) => records.filter((item) => item.id !== record.id)); }}><TrashIcon /></button>
                 </div>
                 {!player && (!role || roleRecordPickerId === record.id) && (
                   <div className="role-record-role-picker">
                     <RoleSelectionGrid
                       language={language}
-                      availableRoles={availableRoles}
+                      availableRoles={noteRoles}
                       selectedRoleId={record.roleId}
                       assignedRoleIds={new Set(players.flatMap((item) => item.role ? [item.role.id] : []))}
                       showNames
                       onSelect={(selectedRole) => {
+                        if (role && role.id !== selectedRole.id) (record.actions || []).forEach((action) => onRemoveAction(role, action));
                         const owner = players.find((item) => item.role?.id === selectedRole.id);
-                        setRoleRecords((records) => records.map((item) => item.id === record.id ? { ...item, roleId: selectedRole.id, playerId: owner?.id } : item));
+                        setRoleRecords((records) => records.map((item) => item.id === record.id ? { ...item, roleId: selectedRole.id, playerId: owner?.id, actions: role?.id === selectedRole.id ? item.actions : [] } : item));
                         setRoleRecordPickerId(null);
                       }}
                     />
@@ -3380,8 +3446,8 @@ function Notes({
                       <div className="smart-action-title"><span>{pattern.prompt}</span></div>
                       {[...(record.actions || [])].sort((a, b) => a.day - b.day).map((action) => {
                         const editing = action.saved === false || editingActionId === action.id;
-                        const selectedResultRole = availableRoles.find((item) => item.id === action.resultRoleId) || roles.find((item) => item.id === action.resultRoleId);
-                        const removeAction = () => setRoleRecords((records) => records.map((item) => item.id === record.id ? { ...item, actions: (item.actions || []).filter((entry) => entry.id !== action.id) } : item));
+                        const selectedResultRole = noteRoles.find((item) => item.id === action.resultRoleId) || roles.find((item) => item.id === action.resultRoleId);
+                        const removeAction = () => { onRemoveAction(role, action); setRoleRecords((records) => records.map((item) => item.id === record.id ? { ...item, actions: (item.actions || []).filter((entry) => entry.id !== action.id) } : item)); };
                         return editing ? (
                           <section className="smart-action-card is-editing" key={action.id}>
                             <div className="smart-action-row">
@@ -3392,10 +3458,10 @@ function Notes({
                               {pattern.kind !== "role" && <label>{pattern.valueLabel}{pattern.kind === "yesno" ? <select value={action.value} onChange={(event) => updateAction(action.id, { value: event.target.value })}><option value="是">{t("是")}</option><option value="否">{t("否")}</option><option value="不确定">{t("不确定")}</option></select> : <input type={pattern.kind === "number" ? "number" : "text"} value={action.value} onChange={(event) => updateAction(action.id, { value: event.target.value })} />}</label>}
                               {pattern.kind === "role" && <label>{pattern.valueLabel}<button className="smart-role-result-trigger" onClick={() => setActionRolePickerId((current) => current === action.id ? null : action.id)}>{selectedResultRole ? <><img src={selectedResultRole.image} alt="" />{selectedResultRole.zh}</> : t("选择角色")}</button></label>}
                             </div>
-                            {pattern.kind === "role" && actionRolePickerId === action.id && <div className="smart-role-result-picker"><RoleSelectionGrid language={language} availableRoles={availableRoles} selectedRoleId={action.resultRoleId} showNames onSelect={(selectedRole) => { updateAction(action.id, { resultRoleId: selectedRole.id, value: selectedRole.zh }); setActionRolePickerId(null); }} /></div>}
+                            {pattern.kind === "role" && actionRolePickerId === action.id && <div className="smart-role-result-picker"><RoleSelectionGrid language={language} availableRoles={noteRoles} selectedRoleId={action.resultRoleId} showNames onSelect={(selectedRole) => { updateAction(action.id, { resultRoleId: selectedRole.id, value: selectedRole.zh }); setActionRolePickerId(null); }} /></div>}
                             {(pattern.kind === "text" || role.id === "artist" || pattern.kind === "target") && <label className="smart-action-detail">{role.id === "artist" ? t("提问内容") : t("补充记录")}<textarea value={action.detail} onChange={(event) => updateAction(action.id, { detail: event.target.value })} /></label>}
                             <p className="smart-action-conclusion"><b>{t("结论")}</b>{roleActionConclusion(role, action, players)}</p>
-                            <div className="smart-action-edit-actions"><button onClick={removeAction}>{t("删除本条")}</button><button className="save" onClick={() => { updateAction(action.id, { saved: true }); setEditingActionId(null); setActionRolePickerId(null); }}>{t("保存")}</button></div>
+                            <div className="smart-action-edit-actions"><button onClick={removeAction}>{t("删除本条")}</button><button className="save" onClick={() => { onSaveAction(role, action); setEditingActionId(null); setActionRolePickerId(null); }}>{t("保存")}</button></div>
                           </section>
                         ) : (
                           <section className="smart-action-summary" key={action.id}>
@@ -3433,7 +3499,7 @@ function Notes({
           language={language}
           players={players}
           roleRecords={roleRecords}
-          availableRoles={availableRoles}
+          availableRoles={noteRoles}
           relations={relations}
           deaths={deaths}
           peacefulDays={peacefulDays}
