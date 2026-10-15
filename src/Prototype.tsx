@@ -132,6 +132,8 @@ type Player = {
   role?: Role;
   marks: Mark[];
   notes: Record<number, string>;
+  isTraveller?: boolean;
+  travellerAlignment?: "good" | "evil";
 };
 type RoleRecord = {
   id: number;
@@ -169,7 +171,7 @@ type Relation = {
   day: number;
   from: number;
   to: number;
-  type: "nominate" | "good" | "bad" | "private";
+  type: "nominate" | "exile" | "good" | "bad" | "private";
   votes?: number[];
   executed?: boolean;
 };
@@ -177,7 +179,7 @@ type DeathEvent = {
   id: number;
   day: number;
   playerId: number;
-  reason: "execution" | "manual" | "revival";
+  reason: "execution" | "exile" | "manual" | "revival";
 };
 
 const ROOM_NAME_EDIT_LIMIT = 15;
@@ -475,6 +477,18 @@ const roles: Role[] = [
       "zhenhuan-jinxi", "zhenhuan-xiaoyunzi", "zhenhuan-niangengyao", "zhenhuan-xiayi",
     ].includes(id) ? abilityZh : undefined,
   })),
+  ...([
+    ["bureaucrat", "官员", "Bureaucrat", "每个夜晚，你要选择除你以外的一名玩家：明天他的投票算作3票。"],
+    ["thief", "窃贼", "Thief", "每个夜晚，你要选择除你以外的一名玩家：明天他的投票算作负数票。"],
+    ["gunslinger", "枪手", "Gunslinger", "每个白天限一次，在第一次投票后，你可以选择一名刚刚投票的玩家：他死亡。"],
+    ["beggar", "乞丐", "Beggar", "你必须使用投票标记投票。死亡玩家可以把自己的投票标记交给你；如果他这么做，你会得知他的阵营。"],
+    ["scapegoat", "替罪羊", "Scapegoat", "如果你的阵营的一名玩家即将被处决，你可能会代替他被处决。"],
+  ] as const).map(([id, zh, en, abilityZh]) => ({
+    id, zh, en, team: "旅行者" as const, edition: "carousel" as const,
+    image: fanRoleIcon(zh, "旅行者"), abilityZh,
+    firstNightReminderZh: id === "bureaucrat" || id === "thief" ? abilityZh : undefined,
+    otherNightReminderZh: id === "bureaucrat" || id === "thief" ? abilityZh : undefined,
+  })),
 ];
 const unknownDemonRole: Role = {
   id: "unknown-demon",
@@ -703,14 +717,20 @@ const createPlayers = (count: number): Player[] =>
     marks: [],
     notes: {},
   }));
+const travellerMarkKeys = new Set<Mark>(["minion", "poison", "deadVote", "deadSpent"]);
 const actionPatternForRole = (role: Role): RoleActionPattern => {
   const ability = role.abilityZh || "";
   if (role.id === "unknown-demon") return { kind: "target", targetCount: 3, prompt: "记录本夜恶魔击杀目标（最多三名）", valueLabel: "击杀结果" };
+  if (role.id === "bureaucrat") return { kind: "target", targetCount: 1, prompt: "选择明天投票算作3票的玩家（不能选择自己）", valueLabel: "三票玩家" };
+  if (role.id === "thief") return { kind: "target", targetCount: 1, prompt: "选择明天投票算作负数票的玩家（不能选择自己）", valueLabel: "负票玩家" };
+  if (role.id === "gunslinger") return { kind: "target", targetCount: 1, prompt: "记录第一次投票后被枪手选择死亡的投票玩家", valueLabel: "枪手目标" };
+  if (role.id === "beggar") return { kind: "yesno", targetCount: 1, prompt: "记录交出死人票标记的玩家及其阵营", valueLabel: "是否得知为善良" };
+  if (role.id === "scapegoat") return { kind: "text", targetCount: 0, prompt: "记录替罪羊是否代替同阵营玩家被处决", valueLabel: "替代处决记录" };
   if (role.id === "poisoner" || (/中毒/.test(ability) && /选择/.test(ability))) return { kind: "target", targetCount: 1, prompt: "选择本夜被施加中毒的玩家", valueLabel: "中毒目标" };
   if (role.id === "fortuneteller") return { kind: "yesno", targetCount: 2, prompt: "选择本夜查验的两名玩家", valueLabel: "是否有恶魔" };
   if (role.id === "chef") return { kind: "number", targetCount: 0, prompt: "记录首夜得到的信息", valueLabel: "相邻邪恶玩家对数", numberMin: 0, numberMax: "halfPlayers" };
   if (role.id === "mathematician") return { kind: "number", targetCount: 0, prompt: "记录除自己外，因其他角色能力影响而未正常生效的玩家数量", valueLabel: "异常生效人数", numberMin: 0, numberMax: "otherPlayers" };
-  if (role.id === "empath") return { kind: "number", targetCount: 0, prompt: "记录两名存活邻居中的邪恶玩家数量", valueLabel: "邪恶邻居数", numberMin: 0, numberMax: 2 };
+  if (role.id === "empath") return { kind: "number", targetCount: 2, prompt: "选择当晚两名存活邻居，并记录其中的邪恶玩家数量", valueLabel: "邪恶邻居数", numberMin: 0, numberMax: 2 };
   if (role.id === "clockmaker") return { kind: "number", targetCount: 0, prompt: "记录恶魔到最近爪牙的最短座位步数", valueLabel: "最近距离", numberMin: 1, numberMax: "halfPlayers" };
   if (role.id === "chambermaid") return { kind: "number", targetCount: 2, prompt: "选择两名存活玩家，记录因自身能力醒来的数量", valueLabel: "醒来人数", numberMin: 0, numberMax: 2 };
   if (role.id === "oracle") return { kind: "number", targetCount: 0, prompt: "记录死亡玩家中的邪恶玩家数量", valueLabel: "死亡邪恶数", numberMin: 0, numberMax: "deadPlayers" };
@@ -746,6 +766,11 @@ const roleActionConclusion = (role: Role, action: RoleAction, players: Player[])
     const player = players.find((item) => item.id === id);
     return `${id}号${player?.role?.zh || "玩家"}`;
   }).join("、");
+  if (role.id === "bureaucrat") return `${targetText || "所选玩家"}明天的每次投票算作3票。`;
+  if (role.id === "thief") return `${targetText || "所选玩家"}明天的每次投票算作负数票。`;
+  if (role.id === "gunslinger") return `${targetText || "所选投票玩家"}被枪手选择并死亡。`;
+  if (role.id === "beggar") return `${targetText || "所选死亡玩家"}交出死人票标记；乞丐得知其阵营为${action.value === "是" ? "善良" : "邪恶"}。`;
+  if (role.id === "scapegoat") return action.value || action.detail || "替罪羊本日没有替代同阵营玩家被处决。";
   if (role.id === "fortuneteller") return action.value === "是"
     ? `${targetText || "所选玩家"}中至少一名是恶魔或红鲱鱼。`
     : `${targetText || "所选玩家"}均未被查验为恶魔。`;
@@ -756,7 +781,9 @@ const roleActionConclusion = (role: Role, action: RoleAction, players: Player[])
       ? "没有玩家的角色能力因其他角色的能力而未正常生效。"
       : `有 ${count} 名玩家的角色能力因其他角色的能力而未正常生效。`;
   }
-  if (role.id === "empath") return `两名存活邻居中有 ${action.value || "0"} 名邪恶玩家。`;
+  if (role.id === "empath") return action.targets.filter(Boolean).length
+    ? `${action.targets.filter(Boolean).join("、")}号玩家中有 ${action.value || "0"} 名邪恶玩家。`
+    : `相邻有 ${action.value || "0"} 名邪恶玩家。`;
   if (role.id === "clockmaker") return `从恶魔到最近爪牙的最短距离为 ${action.value || "未填写"} 步。`;
   if (role.id === "chambermaid") return `${targetText || "所选两名玩家"}中，有 ${action.value || "0"} 名玩家今晚因自身能力醒来。`;
   if (role.id === "oracle") return `死亡玩家中有 ${action.value || "0"} 名邪恶玩家。`;
@@ -887,6 +914,8 @@ export default function Prototype() {
     [maxDay, setMaxDay] = useState(1),
     [quick, setQuick] = useState<number | null>(null),
     [rolePlayer, setRolePlayer] = useState<number | null>(null),
+    [travellerAddOpen, setTravellerAddOpen] = useState(false),
+    [travellerNumber, setTravellerNumber] = useState(13),
     [roleSkill, setRoleSkill] = useState<Role | null>(null),
     [roleSkillMode, setRoleSkillMode] = useState<"hold" | "hover" | null>(null),
     [roleSkillAnchor, setRoleSkillAnchor] = useState({ left: 12, top: 84, width: 320 }),
@@ -1134,6 +1163,8 @@ export default function Prototype() {
   const boardRoles = roles
     .filter((r) => currentBoard?.roleIds.includes(r.id))
     .map((role) => role.abilityZh || !officialRoleText[role.id]?.ability ? role : { ...role, abilityZh: officialRoleText[role.id].ability });
+  const regularBoardRoles = boardRoles.filter((role) => role.team !== "旅行者");
+  const travellerRoles = roles.filter((role) => role.team === "旅行者");
   const groups = useMemo(
     () => ({
       镇民: boardRoles.filter((r) => r.team === "镇民"),
@@ -1151,6 +1182,14 @@ export default function Prototype() {
     // Only objective public facts belong here. Roles, player names, private
     // marks, personal notes and deductions remain in device storage.
     nominations: relations.filter((relation) => relation.type === "nominate"),
+    exiles: relations.filter((relation) => relation.type === "exile"),
+    travellers: players.filter((player) => player.isTraveller).map((player) => ({
+      id: player.id,
+      name: player.name,
+      roleId: player.role?.id,
+      alignment: player.travellerAlignment || (player.marks.includes("minion") ? "evil" : "good"),
+      marks: player.marks.filter((mark) => travellerMarkKeys.has(mark)) as Array<"minion" | "poison" | "deadVote" | "deadSpent">,
+    })),
     deaths,
     peacefulDays,
     publicAnnouncements: [],
@@ -1168,14 +1207,29 @@ export default function Prototype() {
     setDay(room.game_state.day || 1);
     setMaxDay((current) => Math.max(current, room.game_state.day || 1));
     setRelations((current) => [
-      ...current.filter((relation) => relation.type !== "nominate"),
+      ...current.filter((relation) => relation.type !== "nominate" && relation.type !== "exile"),
       ...((room.game_state.nominations || []) as Relation[]),
+      ...((room.game_state.exiles || []) as Relation[]),
     ]);
     setDeaths((room.game_state.deaths || []) as DeathEvent[]);
     setPeacefulDays(room.game_state.peacefulDays || []);
     if (room.game_state.boardId && boards.some((board) => board.id === room.game_state.boardId)) setSelectedBoardId(room.game_state.boardId);
     if (room.game_state.composition) setComposition(room.game_state.composition);
-    if (room.game_state.playerCount) setPlayers((current) => current.length === room.game_state.playerCount ? current : createPlayers(room.game_state.playerCount || 12));
+    if (room.game_state.playerCount) setPlayers((current) => {
+      const regularCount = room.game_state.playerCount || 12;
+      const currentRegular = current.filter((player) => !player.isTraveller);
+      const regular = currentRegular.length === regularCount ? currentRegular : createPlayers(regularCount);
+      const travellers = (room.game_state.travellers || []).map((item) => ({
+        id: item.id,
+        name: item.name || "",
+        role: roles.find((role) => role.id === item.roleId),
+        marks: item.marks.filter((mark) => travellerMarkKeys.has(mark)),
+        notes: {},
+        isTraveller: true,
+        travellerAlignment: item.alignment,
+      } as Player));
+      return [...regular, ...travellers];
+    });
     setRoomNameDraft(roomNameSuffix(room));
     setSyncStatus("synced");
     rememberRoom(room);
@@ -1187,7 +1241,10 @@ export default function Prototype() {
     // this room's namespace. They are never part of game_state.
     try {
       const privateState = JSON.parse(localStorage.getItem(`private_marks:${room.room_code}`) || "null") as { players?: Player[]; roleRecords?: RoleRecord[] } | null;
-      if (privateState?.players?.length) setPlayers(privateState.players);
+      if (privateState?.players?.length) setPlayers((current) => [
+        ...privateState.players!.filter((player) => !player.isTraveller),
+        ...current.filter((player) => player.isTraveller),
+      ]);
       const migratedRecords = (privateState?.players || []).flatMap((player) => {
         const legacyText = Object.values(player.notes || {}).filter(Boolean).join("\n").trim();
         return player.role && legacyText
@@ -1208,7 +1265,7 @@ export default function Prototype() {
     try {
       setSyncStatus("syncing");
       // No event, vote, execution or death from the prior game is reused.
-      const emptyState: SharedGameState = { schemaVersion: SHARED_STATE_SCHEMA_VERSION, stateUpdatedAt: new Date().toISOString(), day: 1, phase: "setup", nominations: [], deaths: [], peacefulDays: [], publicAnnouncements: [], gameEvents: [], boardId: selectedBoardId, composition, playerCount: Object.values(composition).reduce((sum, count) => sum + count, 0) };
+      const emptyState: SharedGameState = { schemaVersion: SHARED_STATE_SCHEMA_VERSION, stateUpdatedAt: new Date().toISOString(), day: 1, phase: "setup", nominations: [], exiles: [], travellers: [], deaths: [], peacefulDays: [], publicAnnouncements: [], gameEvents: [], boardId: selectedBoardId, composition, playerCount: Object.values(composition).reduce((sum, count) => sum + count, 0) };
       const boardName = currentBoard?.name || "未命名板子";
       const now = new Date();
       let ordinal = 1;
@@ -1386,14 +1443,14 @@ export default function Prototype() {
   useEffect(() => () => unsubscribeSharedRoom.current?.(), []);
   useEffect(() => {
     if (!sharedRoom?.room_code) return;
-    localStorage.setItem(`private_marks:${sharedRoom.room_code}`, JSON.stringify({ players, roleRecords }));
+    localStorage.setItem(`private_marks:${sharedRoom.room_code}`, JSON.stringify({ players: players.filter((player) => !player.isTraveller), roleRecords }));
   }, [sharedRoom?.room_code, players, roleRecords]);
   useEffect(() => {
-    const hasPublicGameData = day > 1 || relations.some((relation) => relation.type === "nominate") || deaths.length > 0 || peacefulDays.length > 0;
+    const hasPublicGameData = day > 1 || relations.some((relation) => relation.type === "nominate" || relation.type === "exile") || players.some((player) => player.isTraveller) || deaths.length > 0 || peacefulDays.length > 0;
     if (!started || sharedRoomRef.current || !hasPublicGameData || autoCreatingSharedRoom.current) return;
     autoCreatingSharedRoom.current = true;
     void createSharedGame().finally(() => { autoCreatingSharedRoom.current = false; });
-  }, [started, day, relations, deaths, peacefulDays]);
+  }, [started, day, relations, players, deaths, peacefulDays]);
   useEffect(() => {
     const room = sharedRoomRef.current;
     if (!room || !started || ignoreRemoteRevision.current === room.revision) {
@@ -1418,7 +1475,7 @@ export default function Prototype() {
       }
     }, 400);
     return () => { cancelled = true; window.clearTimeout(timer); };
-  }, [day, relations, deaths, peacefulDays, started]);
+  }, [day, relations, players, deaths, peacefulDays, started]);
   const showRoleSkill = (
     role: Role,
     trigger: HTMLElement,
@@ -1448,7 +1505,8 @@ export default function Prototype() {
     setRoleSkillMode(mode);
   };
   const point = (id: number) => {
-    const a = ((id - 1) / players.length) * Math.PI * 2 - Math.PI / 2;
+    const index = Math.max(0, players.findIndex((player) => player.id === id));
+    const a = (index / players.length) * Math.PI * 2 - Math.PI / 2;
     return { x: 150 + Math.cos(a) * 121, y: 150 + Math.sin(a) * 121 };
   };
   const updateMark = (id: number, m: Mark) => {
@@ -1486,11 +1544,34 @@ export default function Prototype() {
             ms = ms.filter((x) => x !== "poison" && x !== "poisonQ");
           ms.push(m);
         }
-        return { ...p, marks: ms };
+        return { ...p, marks: ms, ...(p.isTraveller && m === "minion" ? { travellerAlignment: ms.includes("minion") ? "evil" as const : "good" as const } : {}) };
       }),
     );
     setQuick(null);
     setToast("玩家状态已更新");
+  };
+  const openTravellerAdd = () => {
+    setTravellerNumber(Math.max(0, ...players.map((player) => player.id)) + 1);
+    setTravellerAddOpen(true);
+  };
+  const addTraveller = () => {
+    if (!Number.isInteger(travellerNumber) || travellerNumber < 1 || players.some((player) => player.id === travellerNumber)) {
+      setToast("请输入未被使用的旅行者号码");
+      return;
+    }
+    const traveller: Player = { id: travellerNumber, name: "", marks: [], notes: {}, isTraveller: true, travellerAlignment: "good" };
+    setPlayers((items) => [...items, traveller].sort((a, b) => a.id - b.id));
+    setTravellerAddOpen(false);
+    setRolePlayer(travellerNumber);
+    setToast(`已添加 ${travellerNumber} 号旅行者`);
+  };
+  const removeTraveller = (id: number) => {
+    setPlayers((items) => items.filter((player) => player.id !== id));
+    setRelations((items) => items.filter((relation) => relation.from !== id && relation.to !== id));
+    setDeaths((items) => items.filter((event) => event.playerId !== id));
+    setRoleRecords((items) => items.filter((record) => record.playerId !== id));
+    setRolePlayer(null);
+    setToast(`已取消 ${id} 号旅行者标记`);
   };
   const nominationSources = new Set(
     relations
@@ -1592,6 +1673,7 @@ export default function Prototype() {
   const livingCount = players.filter(
     (p) => !p.marks.includes("deadVote") && !p.marks.includes("deadSpent"),
   ).length;
+  const dragTargetIsTraveller = Boolean(drag && players.find((player) => player.id === drag.to)?.isTraveller);
   const openRelationEditor = (relation: Relation) => {
     setRelationDraft({
       ...relation,
@@ -1633,7 +1715,9 @@ export default function Prototype() {
       setToast("当天提名或被提名资格已使用，只能记录保、踩或私");
       return;
     }
-    const executed = type === "nominate" && votes.length > livingCount / 2;
+    const isExile = type === "exile";
+    if (isExile && !players.find((player) => player.id === drag.to)?.isTraveller) return;
+    const executed = type === "nominate" ? votes.length > livingCount / 2 : isExile && votes.length > players.length / 2;
     setRelations((rs) => [
       ...rs,
       {
@@ -1642,7 +1726,7 @@ export default function Prototype() {
         from: drag.from,
         to: drag.to,
         type,
-        votes: type === "nominate" ? votes : undefined,
+        votes: type === "nominate" || type === "exile" ? votes : undefined,
         executed,
       },
     ]);
@@ -1690,6 +1774,10 @@ export default function Prototype() {
         ]);
       }
     }
+    if (isExile && executed) {
+      setPlayers((items) => items.map((player) => player.id === drag.to && !player.marks.includes("deadVote") && !player.marks.includes("deadSpent") ? { ...player, marks: [...player.marks, "deadVote"] } : player));
+      setDeaths((items) => [...items.filter((event) => !(event.day === day && event.playerId === drag.to)), { id: Date.now() + 1, day, playerId: drag.to, reason: "exile" }]);
+    }
     setToast(
       type === "good"
         ? "已记录保"
@@ -1697,7 +1785,9 @@ export default function Prototype() {
           ? "已记录踩"
           : type === "private"
             ? "已记录私聊"
-          : `已记录 ${votes.length} 票${executed ? " · 标记处决" : ""}`,
+          : isExile
+            ? `已记录流放支持 ${votes.length} 票${executed ? " · 旅行者死亡" : ""}`
+            : `已记录 ${votes.length} 票${executed ? " · 标记处决" : ""}`,
     );
     setDrag(null);
     setVotes([]);
@@ -2112,7 +2202,7 @@ export default function Prototype() {
                         day,
                         from: drag.from,
                         to: drag.to,
-                        type: "nominate" as const,
+                        type: (players.find((player) => player.id === drag.to)?.isTraveller ? "exile" : "nominate") as Relation["type"],
                         votes,
                       },
                     ]
@@ -2176,7 +2266,7 @@ export default function Prototype() {
                         openRelationEditor(r)
                       }
                     >
-                      {r.type === "nominate" && (
+                      {(r.type === "nominate" || r.type === "exile") && (
                         <path
                           className="relation-outline"
                           d={`M ${sx} ${sy} Q ${cx} ${cy} ${ex} ${ey}`}
@@ -2187,7 +2277,7 @@ export default function Prototype() {
                         stroke={color}
                         markerEnd={`url(#arrow-${r.type === "good" ? "good" : r.type === "bad" ? "bad" : r.type === "private" ? "private" : "black"})`}
                       />
-                      {r.type === "nominate" && (
+                      {(r.type === "nominate" || r.type === "exile") && (
                         <>
                           <circle cx={px} cy={py} r="8" />
                           <text x={px} y={py + 3}>
@@ -2199,6 +2289,11 @@ export default function Prototype() {
                   );
                 })}
               </svg>
+              {!drag && !dragPreview && (
+                <button className="add-traveller-dial" onClick={openTravellerAdd}>
+                  <PlusIcon /><span>{t("旅行者")}</span>
+                </button>
+              )}
               <div
                 className={`dial-prompt ${drag ? "vote" : dragPreview ? "drag" : quick ? "mark" : "idle"}`}
               >
@@ -2208,7 +2303,7 @@ export default function Prototype() {
                       {language === "zh" ? "玩家" : "Player"} {drag.from} →{" "}
                       {language === "zh" ? "玩家" : "Player"} {drag.to}
                     </strong>
-                    <span>{t("请选择投票处决的玩家")}</span>
+                    <span>{dragTargetIsTraveller ? t("请选择支持流放的玩家") : t("请选择投票处决的玩家")}</span>
                     <span>{votes.length}{t("票")}</span>
                   </>
                 ) : dragPreview ? (
@@ -2251,33 +2346,32 @@ export default function Prototype() {
                   <button
                     className={`vote-dial-confirm ${votes.length > livingCount / 2 ? "execution" : ""}`}
                     disabled={
-                      nominationSources.has(drag.from) ||
-                      nominationTargets.has(drag.to)
+                      !dragTargetIsTraveller && (nominationSources.has(drag.from) || nominationTargets.has(drag.to))
                     }
                     onPointerDown={(event) => event.stopPropagation()}
                     onClick={(event) => {
                       event.preventDefault();
                       event.stopPropagation();
-                      finish("nominate");
+                      finish(dragTargetIsTraveller ? "exile" : "nominate");
                     }}
                   >
-                    {t(votes.length > livingCount / 2 ? "标记处决" : "确认")} · {votes.length}{t("票")}
+                    {dragTargetIsTraveller ? t(votes.length > players.length / 2 ? "确认流放" : "流放") : t(votes.length > livingCount / 2 ? "标记处决" : "确认")} · {votes.length}{t("票")}
                   </button>
                 </div>
               )}
-              {players.map((p) => {
+              {players.map((p, playerIndex) => {
                 const q = point(p.id),
                   active = quick === p.id,
-                  canVote = !p.marks.includes("deadSpent"),
+                  canVote = dragTargetIsTraveller || !p.marks.includes("deadSpent"),
                   voted = votes.includes(p.id),
-                  outer = ((p.id - 1) / players.length) * 360,
+                  outer = (playerIndex / players.length) * 360,
                   visibleMarks = p.marks.filter(
                     (m) =>
                       m !== "deadVote" &&
                       m !== "deadSpent" &&
                       marks.some((x) => x.key === m),
                   ),
-                  a = ((p.id - 1) / players.length) * Math.PI * 2 - Math.PI / 2,
+                  a = (playerIndex / players.length) * Math.PI * 2 - Math.PI / 2,
                   inwardDistance = 120 + Math.abs(Math.sin(a)) * 66,
                   inX = -Math.cos(a) * inwardDistance,
                   inY = -Math.sin(a) * inwardDistance,
@@ -2377,6 +2471,7 @@ export default function Prototype() {
                           : `${p.role.zh} (${p.role.en})`}
                       </b>
                     )}
+                    {p.isTraveller && <span className="traveller-badge" title={t("旅行者")}>旅</span>}
                     {display.showPlayerNames && p.name && (
                       <small className={!p.role ? "player-name-no-role" : ""}>
                         {p.name}
@@ -2517,15 +2612,15 @@ export default function Prototype() {
               </button>
               <button
                 className={`vote-dial-confirm ${votes.length > livingCount / 2 ? "execution" : ""}`}
-                disabled={nominationSources.has(drag.from) || nominationTargets.has(drag.to)}
+                disabled={!dragTargetIsTraveller && (nominationSources.has(drag.from) || nominationTargets.has(drag.to))}
                 onPointerDown={(event) => event.stopPropagation()}
                 onClick={(event) => {
                   event.preventDefault();
                   event.stopPropagation();
-                  finish("nominate");
+                  finish(dragTargetIsTraveller ? "exile" : "nominate");
                 }}
               >
-                {t(votes.length > livingCount / 2 ? "标记处决" : "确认")} · {votes.length}{t("票")}
+                {dragTargetIsTraveller ? t(votes.length > players.length / 2 ? "确认流放" : "流放") : t(votes.length > livingCount / 2 ? "标记处决" : "确认")} · {votes.length}{t("票")}
               </button>
             </div>
           )}
@@ -2625,7 +2720,7 @@ export default function Prototype() {
         {relationDraft && (
           <div className="relation-editor">
             <div className="relation-type-picks">
-              {(["nominate", "good", "bad", "private"] as const).map((type) => (
+              {([...(players.find((player) => player.id === relationDraft.to)?.isTraveller ? ["exile" as const] : ["nominate" as const]), "good", "bad", "private"] as const).map((type) => (
                 <button
                   key={type}
                   className={relationDraft.type === type ? `active ${type}` : type}
@@ -2633,11 +2728,11 @@ export default function Prototype() {
                     setRelationDraft({
                       ...relationDraft,
                       type,
-                      votes: type === "nominate" ? relationDraft.votes || [] : undefined,
+                      votes: type === "nominate" || type === "exile" ? relationDraft.votes || [] : undefined,
                     })
                   }
                 >
-                  {t(type === "nominate" ? "提名" : type === "good" ? "保" : type === "bad" ? "踩" : "私")}
+                  {t(type === "nominate" ? "提名" : type === "exile" ? "流放" : type === "good" ? "保" : type === "bad" ? "踩" : "私")}
                 </button>
               ))}
             </div>
@@ -2673,13 +2768,13 @@ export default function Prototype() {
                 </select>
               </label>
             </div>
-            {relationDraft.type === "nominate" && (
+            {(relationDraft.type === "nominate" || relationDraft.type === "exile") && (
               <fieldset className="relation-voters">
                 <legend>{t("投票玩家")}</legend>
                 <div>
                   {players.map((p) => {
                     const checked = relationDraft.votes?.includes(p.id) || false;
-                    const disabled = p.marks.includes("deadSpent");
+                    const disabled = relationDraft.type !== "exile" && p.marks.includes("deadSpent");
                     return (
                       <label className={disabled ? "disabled" : ""} key={p.id}>
                         <input
@@ -2721,8 +2816,11 @@ export default function Prototype() {
                   const next = {
                     ...relationDraft,
                     executed:
-                      relationDraft.type === "nominate" &&
-                      (relationDraft.votes?.length || 0) > livingCount / 2,
+                      relationDraft.type === "nominate"
+                        ? (relationDraft.votes?.length || 0) > livingCount / 2
+                        : relationDraft.type === "exile"
+                          ? (relationDraft.votes?.length || 0) > players.length / 2
+                          : false,
                   };
                   setRelations((items) =>
                     items.map((item) => (item.id === next.id ? next : item)),
@@ -3038,6 +3136,21 @@ export default function Prototype() {
         <BoardPreviewModal board={sharedBoardPreview} language={language} close={() => setSharedBoardPreview(null)} />
       )}
       <BottomSheet
+        open={travellerAddOpen}
+        onOpenChange={setTravellerAddOpen}
+        title={t("添加旅行者")}
+        description={t("旅行者会按号码加入圆盘，并作为本局公开信息同步")}
+        snap={0.42}
+      >
+        <button aria-label={t("关闭")} className="desktop-modal-close" onClick={() => setTravellerAddOpen(false)}><Cross2Icon /></button>
+        <div className="traveller-add-form">
+          <label>{t("旅行者号码")}</label>
+          <KeyboardInput type="number" min={1} step={1} value={travellerNumber} onChange={(event) => setTravellerNumber(Number(event.target.value))} />
+          <small>{t("默认使用当前最大玩家号码的下一位")}</small>
+          <button className="ui-button ui-button--primary" onClick={addTraveller}>{t("添加并选择旅行者角色")}</button>
+        </div>
+      </BottomSheet>
+      <BottomSheet
         open={rolePlayer !== null}
         onOpenChange={(o) => {
           if (!o) {
@@ -3047,7 +3160,7 @@ export default function Prototype() {
             setRoleReferenceOpen(false);
           }
         }}
-        title={`${language === "zh" ? "为玩家" : "Player"} ${rolePlayer || ""} · ${t("选择角色")}`}
+        title={`${players.find((player) => player.id === rolePlayer)?.isTraveller ? t("为旅行者") : language === "zh" ? "为玩家" : "Player"} ${rolePlayer || ""} · ${t("选择角色")}`}
         description={t("轻点头像可随时修改 · 长按角色头像查看技能描述")}
         snap={0.88}
       >
@@ -3074,8 +3187,12 @@ export default function Prototype() {
             <div className="role-avatar-grid">
               <button
                 className="role-avatar-option clear-role-option"
-                aria-label={t("取消标记")}
+                aria-label={t(players.find((player) => player.id === rolePlayer)?.isTraveller ? "取消旅行者标记" : "取消标记")}
                 onClick={() => {
+                  if (rolePlayer !== null && players.find((player) => player.id === rolePlayer)?.isTraveller) {
+                    removeTraveller(rolePlayer);
+                    return;
+                  }
                   setPlayers((ps) =>
                     ps.map((p) =>
                       p.id === rolePlayer ? { ...p, role: undefined } : p,
@@ -3083,9 +3200,14 @@ export default function Prototype() {
                   );
                 }}
               >
-                <span>{t("取消标记")}</span>
+                <span>{t(players.find((player) => player.id === rolePlayer)?.isTraveller ? "取消旅行者标记" : "取消标记")}</span>
               </button>
-              {marks.map((status) => {
+              {!players.find((player) => player.id === rolePlayer)?.isTraveller && (
+                <button className="role-avatar-option add-traveller-option" onClick={openTravellerAdd}>
+                  <PlusIcon /><span>{t("添加旅行者")}</span>
+                </button>
+              )}
+              {marks.filter((status) => !players.find((player) => player.id === rolePlayer)?.isTraveller || travellerMarkKeys.has(status.key)).map((status) => {
                 const active = players.find((player) => player.id === rolePlayer)?.marks.includes(status.key);
                 return (
                   <button
@@ -3104,7 +3226,7 @@ export default function Prototype() {
           </section>
           <RoleSelectionGrid
             language={language}
-            availableRoles={boardRoles}
+            availableRoles={players.find((player) => player.id === rolePlayer)?.isTraveller ? travellerRoles : regularBoardRoles}
             selectedRoleId={players.find((player) => player.id === rolePlayer)?.role?.id}
             assignedRoleIds={new Set(players.flatMap((player) => player.role ? [player.role.id] : []))}
             showNames={display.showRoleNames}
@@ -3483,6 +3605,27 @@ function Notes({
   const dayOptions = Array.from({ length: Math.max(5, day) }, (_, index) => index + 1);
   const noteRoles = availableRoles.some((role) => role.id === unknownDemonRole.id) ? availableRoles : [...availableRoles, unknownDemonRole];
   const roleFor = (record: RoleRecord) => noteRoles.find((role) => role.id === record.roleId) || roles.find((role) => role.id === record.roleId);
+  const empathNeighboursForDay = (playerId: number | undefined, actionDay: number) => {
+    if (!playerId || players.length < 3) return [];
+    const ordered = [...players].sort((a, b) => a.id - b.id);
+    const ownerIndex = ordered.findIndex((candidate) => candidate.id === playerId);
+    if (ownerIndex < 0) return [];
+    const aliveAtStart = (candidateId: number) => {
+      const latest = deaths
+        .filter((event) => event.playerId === candidateId && event.day < actionDay)
+        .sort((a, b) => b.day - a.day || b.id - a.id)[0];
+      return !latest || latest.reason === "revival";
+    };
+    const nearest = (direction: -1 | 1) => {
+      for (let distance = 1; distance < ordered.length; distance += 1) {
+        const index = (ownerIndex + direction * distance + ordered.length) % ordered.length;
+        const candidate = ordered[index];
+        if (candidate.id !== playerId && aliveAtStart(candidate.id)) return candidate.id;
+      }
+      return undefined;
+    };
+    return [nearest(-1), nearest(1)].filter((id): id is number => id !== undefined);
+  };
   const roleRecordsList = (
     <section className="global-role-records">
       <header>
@@ -3510,7 +3653,8 @@ function Notes({
                       const actionId = Date.now();
                       const pattern = actionPatternForRole(role);
                       const actionDay = fixedDayOneRoleIds.has(role.id) ? 1 : noFirstNightRoleIds.has(role.id) ? Math.max(2, day) : day;
-                      setRoleRecords((records) => records.map((item) => item.id === record.id ? { ...item, actions: [...(item.actions || []), { id: actionId, day: actionDay, targets: [], value: pattern.kind === "yesno" ? "是" : pattern.kind === "number" ? String(pattern.numberMin ?? 0) : "", detail: "", saved: false }] } : item));
+                      const defaultTargets = role.id === "empath" ? empathNeighboursForDay(record.playerId, actionDay) : [];
+                      setRoleRecords((records) => records.map((item) => item.id === record.id ? { ...item, actions: [...(item.actions || []), { id: actionId, day: actionDay, targets: defaultTargets, value: pattern.kind === "yesno" ? "是" : pattern.kind === "number" ? String(pattern.numberMin ?? 0) : "", detail: "", saved: false }] } : item));
                       setEditingActionId(actionId);
                     }}><PlusIcon />{t("添加行动")}</button>}
                     {role && <button className="role-record-add-info" onClick={() => { setInfoDraft(record.text || ""); setEditingInfoRecordId(record.id); }}><PlusIcon />{record.text ? t("编辑信息") : t("添加信息")}</button>}
@@ -3564,7 +3708,7 @@ function Notes({
                         }).length;
                         const numberMax = pattern.numberMax === "players" ? players.length : pattern.numberMax === "otherPlayers" ? Math.max(0, players.length - 1) : pattern.numberMax === "halfPlayers" ? Math.max(1, Math.floor(players.length / 2)) : pattern.numberMax === "deadPlayers" ? deadPlayerCount : pattern.numberMax;
                         const validDays = fixedDayOneRoleIds.has(role.id) ? [1] : noFirstNightRoleIds.has(role.id) ? dayOptions.filter((optionDay) => optionDay >= 2) : dayOptions;
-                        const requiredTargetCount = action.zeroResult ? 0 : role.id === "unknown-demon" ? 1 : pattern.targetCount;
+                        const requiredTargetCount = action.zeroResult || (role.id === "empath" && !record.playerId) ? 0 : role.id === "unknown-demon" ? 1 : pattern.targetCount;
                         const chosenTargets = action.targets.filter(Boolean);
                         const targetsComplete = chosenTargets.length >= requiredTargetCount && new Set(chosenTargets).size === chosenTargets.length;
                         const roleResultsComplete = pattern.kind !== "role" || action.zeroResult || (Boolean(action.resultRoleId) && (pattern.roleResultCount !== 2 || Boolean(action.resultRoleId2)));
@@ -3576,6 +3720,9 @@ function Notes({
                           const latestLifeEvent = latestLifeEventBeforeNight(candidate.id);
                           if (role.id === "chambermaid" && latestLifeEvent && latestLifeEvent.reason !== "revival") return false;
                           if (["chambermaid", "dreamer", "seamstress"].includes(role.id) && candidate.id === record.playerId) return false;
+                          if (role.id === "empath" && (candidate.id === record.playerId || (latestLifeEvent && latestLifeEvent.reason !== "revival"))) return false;
+                          if (["bureaucrat", "thief"].includes(role.id) && candidate.id === record.playerId) return false;
+                          if (role.id === "gunslinger" && !relations.some((relation) => relation.day === action.day && relation.type === "nominate" && relation.votes?.includes(candidate.id))) return false;
                           if (role.id === "dreamer" && candidate.role?.team === "旅行者") return false;
                           if (role.id === "grandmother" && candidate.role && !["镇民", "外来者"].includes(candidate.role.team)) return false;
                           if (role.id === "undertaker" && !deaths.some((event) => event.playerId === candidate.id && event.reason === "execution" && event.day === action.day - 1)) return false;
@@ -3597,7 +3744,7 @@ function Notes({
                               </label>
                             )}
                             <div className="smart-action-row">
-                              <label>{t("天数")}<select value={action.day} onChange={(event) => updateAction(action.id, { day: Number(event.target.value) })}>{validDays.map((optionDay) => <option value={optionDay} key={optionDay}>{t("第")} {optionDay} {t("天")}</option>)}</select></label>
+                              <label>{t("天数")}<select value={action.day} onChange={(event) => { const nextDay = Number(event.target.value); updateAction(action.id, { day: nextDay, ...(role.id === "empath" ? { targets: empathNeighboursForDay(record.playerId, nextDay) } : {}) }); }}>{validDays.map((optionDay) => <option value={optionDay} key={optionDay}>{t("第")} {optionDay} {t("天")}</option>)}</select></label>
                               {!action.zeroResult && Array.from({ length: pattern.targetCount }, (_, index) => (
                                 <label key={index}>{t("目标")} {index + 1}{role.id === "unknown-demon" && index > 0 ? `（${t("可选")}）` : ""}<select value={action.targets[index] || ""} onChange={(event) => { const targets = [...action.targets]; targets[index] = Number(event.target.value); updateAction(action.id, { targets }); }}><option value="">—</option>{eligiblePlayers.filter((candidate) => !action.targets.some((target, targetIndex) => targetIndex !== index && target === candidate.id)).map((candidate) => <option value={candidate.id} key={candidate.id}>{candidate.id}{t("号玩家")}{candidate.role ? ` · ${candidate.role.zh}` : ""}</option>)}</select></label>
                               ))}
@@ -3993,13 +4140,14 @@ function VoteNotes({
       </section>
       {days.map((recordDay) => {
         const rs = relations.filter(
-            (r) => r.day === recordDay && r.type === "nominate",
+            (r) => r.day === recordDay && (r.type === "nominate" || r.type === "exile"),
           ),
           deathCount = deaths.filter(
             (d) => d.day === recordDay && d.reason !== "revival",
           ).length,
-          nominators = [...new Set(rs.map((relation) => relation.from))],
-          nominees = [...new Set(rs.map((relation) => relation.to))],
+          nominations = rs.filter((relation) => relation.type === "nominate"),
+          nominators = [...new Set(nominations.map((relation) => relation.from))],
+          nominees = [...new Set(nominations.map((relation) => relation.to))],
           roleConclusions = roleRecords.flatMap((record) => {
             const role = availableRoles.find((item) => item.id === record.roleId) || roles.find((item) => item.id === record.roleId);
             if (!role) return [];
@@ -4014,7 +4162,7 @@ function VoteNotes({
               <h3>
                 {language === "zh" ? `第 ${recordDay} 天` : `Day ${recordDay}`}
               </h3>
-              {rs.length > 0 && (
+              {nominations.length > 0 && (
                 <span className="day-nomination-summary">
                   {t("提名玩家")} {nominators.join("、")} · {t("被提名")} {nominees.join("、")}
                 </span>
@@ -4058,7 +4206,7 @@ function VoteNotes({
                     <article className="daily-vote-record" key={r.id}>
                       <b className="nomination-sentence">
                         {r.from}{t("号")}{a?.role ? (language === "zh" ? a.role.zh : a.role.en) : t("玩家")}
-                        {t("提名")}
+                        {r.type === "exile" ? t("发起流放") : t("提名")}
                         {r.to}{t("号")}{b?.role ? (language === "zh" ? b.role.zh : b.role.en) : t("玩家")}
                       </b>
                       <div className="vote-player-row">
@@ -4074,7 +4222,7 @@ function VoteNotes({
                       </div>
                       <footer>
                         <strong>{t("共")} {r.votes?.length || 0} {t("票")}</strong>
-                        <span className={r.executed ? "executed" : "not-executed"}>{r.executed ? t("标记死亡") : t("未标记死亡")}</span>
+                        <span className={r.executed ? "executed" : "not-executed"}>{r.type === "exile" ? (r.executed ? t("已流放 · 旅行者死亡") : t("未达到流放多数")) : (r.executed ? t("标记死亡") : t("未标记死亡"))}</span>
                       </footer>
                     </article>
                   );

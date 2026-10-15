@@ -1,11 +1,20 @@
 /** Anonymous, room-scoped Supabase transport for public Clocktower facts. */
-export const SHARED_STATE_SCHEMA_VERSION = 2;
+export const SHARED_STATE_SCHEMA_VERSION = 3;
+export type SharedTraveller = {
+  id: number;
+  name: string;
+  roleId?: string;
+  alignment: "good" | "evil";
+  marks: Array<"minion" | "poison" | "deadVote" | "deadSpent">;
+};
 export type SharedGameState = {
   schemaVersion?: number;
   stateUpdatedAt?: string;
   day: number;
   phase: "setup" | "day" | "nomination" | "night" | "finished";
   nominations: unknown[];
+  exiles?: unknown[];
+  travellers?: SharedTraveller[];
   deaths: unknown[];
   peacefulDays: number[];
   publicAnnouncements: unknown[];
@@ -48,6 +57,8 @@ function normaliseState(state: SharedGameState | null | undefined): SharedGameSt
     day: Number(state?.day) || 1,
     phase: state?.phase || "setup",
     nominations: Array.isArray(state?.nominations) ? state.nominations : [],
+    exiles: Array.isArray(state?.exiles) ? state.exiles : [],
+    travellers: Array.isArray(state?.travellers) ? state.travellers : [],
     deaths: Array.isArray(state?.deaths) ? state.deaths : [],
     peacefulDays: Array.isArray(state?.peacefulDays) ? state.peacefulDays : [],
     publicAnnouncements: Array.isArray(state?.publicAnnouncements) ? state.publicAnnouncements : [],
