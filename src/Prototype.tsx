@@ -38,6 +38,7 @@ import {
   readRecentRooms,
   rememberRoom,
   ROOM_CODE_PATTERN,
+  SHARED_STATE_SCHEMA_VERSION,
   subscribeRoom,
   supabaseReady,
   updateRoom,
@@ -1143,6 +1144,8 @@ export default function Prototype() {
     [currentBoard?.id, currentBoard?.roleIds.join(","), officialRoleText],
   );
   const sharedState = (): SharedGameState => ({
+    schemaVersion: SHARED_STATE_SCHEMA_VERSION,
+    stateUpdatedAt: new Date().toISOString(),
     day,
     phase: started ? "day" : "setup",
     // Only objective public facts belong here. Roles, player names, private
@@ -1205,7 +1208,7 @@ export default function Prototype() {
     try {
       setSyncStatus("syncing");
       // No event, vote, execution or death from the prior game is reused.
-      const emptyState: SharedGameState = { day: 1, phase: "setup", nominations: [], deaths: [], peacefulDays: [], publicAnnouncements: [], gameEvents: [], boardId: selectedBoardId, composition, playerCount: Object.values(composition).reduce((sum, count) => sum + count, 0) };
+      const emptyState: SharedGameState = { schemaVersion: SHARED_STATE_SCHEMA_VERSION, stateUpdatedAt: new Date().toISOString(), day: 1, phase: "setup", nominations: [], deaths: [], peacefulDays: [], publicAnnouncements: [], gameEvents: [], boardId: selectedBoardId, composition, playerCount: Object.values(composition).reduce((sum, count) => sum + count, 0) };
       const boardName = currentBoard?.name || "未命名板子";
       const now = new Date();
       let ordinal = 1;

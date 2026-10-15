@@ -1,5 +1,8 @@
 /** Anonymous, room-scoped Supabase transport for public Clocktower facts. */
+export const SHARED_STATE_SCHEMA_VERSION = 2;
 export type SharedGameState = {
+  schemaVersion?: number;
+  stateUpdatedAt?: string;
   day: number;
   phase: "setup" | "day" | "nomination" | "night" | "finished";
   nominations: unknown[];
@@ -38,6 +41,27 @@ async function request<T>(path: string, init?: RequestInit, roomCode?: string): 
   return (text ? JSON.parse(text) : null) as T;
 }
 
+function normaliseState(state: SharedGameState | null | undefined): SharedGameState {
+  return {
+    schemaVersion: Number(state?.schemaVersion) || 1,
+    stateUpdatedAt: state?.stateUpdatedAt,
+    day: Number(state?.day) || 1,
+    phase: state?.phase || "setup",
+    nominations: Array.isArray(state?.nominations) ? state.nominations : [],
+    deaths: Array.isArray(state?.deaths) ? state.deaths : [],
+    peacefulDays: Array.isArray(state?.peacefulDays) ? state.peacefulDays : [],
+    publicAnnouncements: Array.isArray(state?.publicAnnouncements) ? state.publicAnnouncements : [],
+    gameEvents: Array.isArray(state?.gameEvents) ? state.gameEvents : [],
+    boardId: state?.boardId,
+    composition: state?.composition,
+    playerCount: state?.playerCount,
+  };
+}
+
+function normaliseRoom(room: SharedRoom): SharedRoom {
+  return { ...room, game_state: normaliseState(room.game_state) };
+}
+
 export function normaliseRoomCode(value: string) { return value.toUpperCase().replace(/[^A-Z1-9]/g, "").replace(/[O0]/g, "").slice(0, 7); }
 export function createRoomCode() {
   const bytes = new Uint8Array(7); crypto.getRandomValues(bytes);
@@ -60,25 +84,25 @@ export async function findRoom(code: string): Promise<SharedRoom | null> {
   const roomCode = normaliseRoomCode(code);
   if (!ROOM_CODE_PATTERN.test(roomCode)) throw new Error("INVALID_ROOM_CODE");
   const rooms = await request<SharedRoom[]>(`game_rooms?select=*&room_code=eq.${encodeURIComponent(roomCode)}&limit=1`, undefined, roomCode);
-  return rooms[0] || null;
+  return rooms[0] ? normaliseRoom(rooms[0]) : null;
 }
 export async function listRooms(): Promise<SharedRoom[]> {
   const rows = await request<SharedRoom[]>("rpc/list_shared_game_rooms", { method: "POST", body: "{}" });
-  return rows.slice(0, 100);
+  return rows.slice(0, 100).map(normaliseRoom);
 }
 export async function createRoom(gameType: string, state: SharedGameState, roomName = makeDefaultRoomName(gameType)): Promise<SharedRoom> {
   for (let attempt = 0; attempt < 6; attempt += 1) {
     const roomCode = createRoomCode();
     try {
       const created = await request<SharedRoom[]>("game_rooms", { method: "POST", headers: headers("return=representation", roomCode), body: JSON.stringify({ room_code: roomCode, room_name: roomName, game_type: gameType, status: "waiting", game_state: state, revision: 0 }) }, roomCode);
-      return created[0];
+      return normaliseRoom(created[0]);
     } catch (error) { if (attempt === 5) throw error; }
   }
   throw new Error("ROOM_CREATE_FAILED");
 }
 export async function updateRoom(room: Pick<SharedRoom, "id" | "revision" | "room_code">, patch: Partial<Pick<SharedRoom, "room_name" | "game_type" | "game_state" | "status" | "result" | "started_at" | "finished_at">>): Promise<SharedRoom | null> {
   const updated = await request<SharedRoom[]>(`game_rooms?id=eq.${encodeURIComponent(room.id)}&revision=eq.${room.revision}`, { method: "PATCH", headers: headers("return=representation"), body: JSON.stringify({ ...patch, revision: room.revision + 1, updated_at: new Date().toISOString() }) }, room.room_code);
-  return updated[0] || null;
+  return updated[0] ? normaliseRoom(updated[0]) : null;
 }
 
 export function subscribeRoom(room: Pick<SharedRoom, "id" | "room_code" | "revision">, onChange: (room: SharedRoom) => void, onPresence?: (count: number) => void) {

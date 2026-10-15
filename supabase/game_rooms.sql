@@ -8,7 +8,7 @@ create table if not exists public.game_rooms (
   room_name text not null default '未命名游戏局' check (char_length(room_name) between 1 and 30),
   game_type text not null check (char_length(game_type) <= 160),
   status text not null default 'waiting' check (status in ('waiting','active','finished','abandoned')),
-  game_state jsonb not null default '{"day":1,"phase":"setup","nominations":[],"deaths":[],"peacefulDays":[],"publicAnnouncements":[],"gameEvents":[]}'::jsonb,
+  game_state jsonb not null default '{"schemaVersion":2,"day":1,"phase":"setup","nominations":[],"deaths":[],"peacefulDays":[],"publicAnnouncements":[],"gameEvents":[]}'::jsonb,
   created_at timestamptz not null default now(),
   started_at timestamptz,
   updated_at timestamptz not null default now(),
@@ -20,6 +20,9 @@ create index if not exists game_rooms_room_code_idx on public.game_rooms(room_co
 
 -- Safe to re-run when upgrading an existing project.
 alter table public.game_rooms add column if not exists room_name text not null default '未命名游戏局';
+update public.game_rooms
+set game_state = jsonb_set(game_state, '{schemaVersion}', '2'::jsonb, true)
+where coalesce((game_state ->> 'schemaVersion')::integer, 0) < 2;
 alter table public.game_rooms drop constraint if exists game_rooms_room_name_check;
 alter table public.game_rooms add constraint game_rooms_room_name_check check (char_length(room_name) between 1 and 30);
 
