@@ -8,7 +8,7 @@ create table if not exists public.game_rooms (
   room_name text not null default '未命名游戏局' check (char_length(room_name) between 1 and 30),
   game_type text not null check (char_length(game_type) <= 160),
   status text not null default 'waiting' check (status in ('waiting','active','finished','abandoned')),
-  game_state jsonb not null default '{"schemaVersion":2,"day":1,"phase":"setup","nominations":[],"deaths":[],"peacefulDays":[],"publicAnnouncements":[],"gameEvents":[]}'::jsonb,
+  game_state jsonb not null default '{"schemaVersion":3,"day":1,"phase":"setup","nominations":[],"exiles":[],"travellers":[],"deaths":[],"peacefulDays":[],"publicAnnouncements":[],"gameEvents":[]}'::jsonb,
   created_at timestamptz not null default now(),
   started_at timestamptz,
   updated_at timestamptz not null default now(),
@@ -21,20 +21,22 @@ create index if not exists game_rooms_room_code_idx on public.game_rooms(room_co
 -- Safe to re-run when upgrading an existing project.
 alter table public.game_rooms add column if not exists room_name text not null default '未命名游戏局';
 update public.game_rooms
-set game_state = jsonb_set(game_state, '{schemaVersion}', '2'::jsonb, true)
-where coalesce((game_state ->> 'schemaVersion')::integer, 0) < 2;
+set game_state = jsonb_set(jsonb_set(jsonb_set(game_state, '{schemaVersion}', '3'::jsonb, true), '{exiles}', coalesce(game_state -> 'exiles', '[]'::jsonb), true), '{travellers}', coalesce(game_state -> 'travellers', '[]'::jsonb), true)
+where coalesce((game_state ->> 'schemaVersion')::integer, 0) < 3;
 alter table public.game_rooms drop constraint if exists game_rooms_room_name_check;
 alter table public.game_rooms add constraint game_rooms_room_name_check check (char_length(room_name) between 1 and 30);
 
 create table if not exists public.game_events (
   id uuid primary key default gen_random_uuid(),
   room_id uuid not null references public.game_rooms(id) on delete cascade,
-  event_type text not null check (event_type in ('nomination','vote','execution','death','phase_change','result')),
+  event_type text not null check (event_type in ('nomination','vote','exile','execution','death','phase_change','result')),
   event_data jsonb not null,
   created_at timestamptz not null default now(),
   revision integer not null check (revision >= 0)
 );
 create index if not exists game_events_room_revision_idx on public.game_events(room_id, revision);
+alter table public.game_events drop constraint if exists game_events_event_type_check;
+alter table public.game_events add constraint game_events_event_type_check check (event_type in ('nomination','vote','exile','execution','death','phase_change','result'));
 
 alter table public.game_rooms enable row level security;
 alter table public.game_events enable row level security;
@@ -44,16 +46,21 @@ grant select, insert on public.game_events to anon;
 
 -- A caller may only see/update the one code it has placed in X-Room-Code.
 -- This stops `select=*` enumeration even when the anonymous key is public.
+drop policy if exists "anon can read one room by code" on public.game_rooms;
 create policy "anon can read one room by code" on public.game_rooms for select to anon
   using (room_code = ((current_setting('request.headers', true)::jsonb ->> 'x-room-code')::char(7)));
+drop policy if exists "anon can create validated room" on public.game_rooms;
 create policy "anon can create validated room" on public.game_rooms for insert to anon
   with check (room_code ~ '^[A-NP-Z1-9]{7}$' and jsonb_typeof(game_state) = 'object' and octet_length(game_state::text) < 65536);
+drop policy if exists "anon can update public room state" on public.game_rooms;
 create policy "anon can update public room state" on public.game_rooms for update to anon
   using (room_code = ((current_setting('request.headers', true)::jsonb ->> 'x-room-code')::char(7)) and room_code ~ '^[A-NP-Z1-9]{7}$')
   with check (room_code = ((current_setting('request.headers', true)::jsonb ->> 'x-room-code')::char(7)) and room_code ~ '^[A-NP-Z1-9]{7}$' and jsonb_typeof(game_state) = 'object' and octet_length(game_state::text) < 65536 and revision >= 0);
+drop policy if exists "anon can read one room events" on public.game_events;
 create policy "anon can read one room events" on public.game_events for select to anon using (
   exists (select 1 from public.game_rooms r where r.id = room_id and r.room_code = ((current_setting('request.headers', true)::jsonb ->> 'x-room-code')::char(7)) )
 );
+drop policy if exists "anon can insert constrained events" on public.game_events;
 create policy "anon can insert constrained events" on public.game_events for insert to anon
   with check (jsonb_typeof(event_data) = 'object' and octet_length(event_data::text) < 16384 and exists (select 1 from public.game_rooms r where r.id = room_id and r.room_code = ((current_setting('request.headers', true)::jsonb ->> 'x-room-code')::char(7)) ));
 
