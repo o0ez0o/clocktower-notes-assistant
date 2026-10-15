@@ -517,6 +517,40 @@ body,
   }
 }
 
+/* Every mobile panel is a full-screen workspace with a consistent close affordance. */
+@media (max-width: 699px) {
+  body #root .bottom-sheet {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100dvh !important;
+    max-width: none !important;
+    max-height: 100dvh !important;
+    transform: none !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+  }
+  body #root .bottom-sheet .sheet-handle-zone { display:none !important; }
+  body #root .bottom-sheet .sheet-header { min-height:64px; box-sizing:border-box; padding:14px 62px 10px 16px !important; }
+  body #root .bottom-sheet .sheet-content { min-height:0; overflow-y:auto !important; padding:0 14px calc(16px + env(safe-area-inset-bottom)) !important; }
+  body #root .bottom-sheet > .desktop-modal-close,
+  body #root .bottom-sheet .sheet-content > .desktop-modal-close {
+    position:absolute !important;
+    z-index:40 !important;
+    top:13px !important;
+    right:14px !important;
+    width:38px !important;
+    height:38px !important;
+    display:grid !important;
+    place-items:center;
+    padding:0 !important;
+    border:1px solid rgba(92,64,43,.2) !important;
+    border-radius:10px !important;
+    background:#f8efe0 !important;
+    color:#624535 !important;
+  }
+}
+
 /* Board information is a full-screen reference view at every breakpoint. */
 .bottom-sheet:has(.board-info-panel-close) {
   position: fixed !important;
