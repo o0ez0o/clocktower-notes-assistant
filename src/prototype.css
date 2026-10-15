@@ -4781,6 +4781,7 @@ body,
 .daily-role-records { order:-1; display:grid; gap:7px; }
 .daily-role-records > h3 { margin:0; }
 .vote-notes .daily-role-record { display:grid; grid-template-columns:26px 38px minmax(0,1fr); align-items:start; gap:9px; padding:8px 9px; border:1px solid #ddccb1; border-radius:9px; background:#fffaf0; }
+.vote-notes .daily-role-record.without-player { grid-template-columns:38px minmax(0,1fr); }
 .daily-role-player-number { width:26px; height:26px; display:grid; place-items:center; margin-top:4px; border-radius:50%; background:#792522; color:#fff6e5; font-size:11px; }
 .daily-role-record > img { width:34px; height:34px; flex:none; border-radius:50%; object-fit:contain; }
 .daily-role-record > div { min-width:0; display:grid; gap:2px; }

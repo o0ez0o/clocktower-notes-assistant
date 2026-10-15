@@ -3827,13 +3827,13 @@ function VoteNotes({
     <div className="vote-notes">
       <section className="daily-role-records">
         <h3>{t("角色记录")}</h3>
-        {roleRecords.some((record) => record.playerId !== undefined && record.roleId) ? roleRecords.map((record) => {
+        {roleRecords.some((record) => record.roleId) ? roleRecords.map((record) => {
           const role = availableRoles.find((item) => item.id === record.roleId) || roles.find((item) => item.id === record.roleId);
           const player = players.find((item) => item.id === record.playerId);
-          if (!role || !player) return null;
+          if (!role) return null;
           return (
-            <article className="daily-role-record" key={record.id}>
-              <strong className="daily-role-player-number">{player.id}</strong>
+            <article className={`daily-role-record ${player ? "with-player" : "without-player"}`} key={record.id}>
+              {player && <strong className="daily-role-player-number">{player.id}</strong>}
               <img src={role.image} alt="" />
               <div>
                 <b>{language === "zh" ? role.zh : `${role.zh} (${role.en})`}</b>
