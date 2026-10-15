@@ -1735,8 +1735,8 @@ button {
 .add-traveller-dial {
   position: absolute;
   z-index: 9;
-  right: 4%;
-  bottom: 5%;
+  right: -2px;
+  bottom: -1px;
   width: 46px;
   height: 46px;
   border-radius: 50%;
@@ -2147,6 +2147,8 @@ button {
   overflow-y: auto;
   overscroll-behavior: contain;
 }
+.role-picker-section-label { margin:6px 0 9px; color:#6b4b36; font-size:12px; font-weight:800; }
+.role-picker-section-label:not(:first-child) { margin-top:18px; padding-top:13px; border-top:1px solid rgba(107,75,54,.16); }
 .role-picker-group { margin: 0 0 18px; }
 .role-picker-group h3 {
   margin: 0 0 9px;
@@ -2247,6 +2249,14 @@ button {
   background: #f3dfd6;
   box-shadow: 0 0 0 3px rgba(143, 48, 46, 0.18);
 }
+.recorded-role-shortcuts { display:grid; gap:8px; margin:4px 0 14px; }
+.recorded-role-shortcuts > h3 { margin:0; color:#6b4b36; font-size:12px; }
+.recorded-role-shortcut-track { display:flex; gap:8px; padding:1px 1px 6px; overflow-x:auto; overscroll-behavior-x:contain; scroll-snap-type:x proximity; }
+.recorded-role-shortcut { min-width:min(290px,82vw); display:grid; grid-template-columns:42px minmax(0,1fr); align-items:center; gap:9px; padding:8px 10px; scroll-snap-align:start; border:1px solid #d5c09e; border-radius:10px; background:#fff9ed; color:#584034; text-align:left; }
+.recorded-role-shortcut > img { width:42px; height:42px; border-radius:50%; object-fit:cover; background:#eee5d7; }
+.recorded-role-shortcut > span { min-width:0; display:grid; gap:2px; }
+.recorded-role-shortcut b { color:#6f302c; font-size:12px; }
+.recorded-role-shortcut small { display:block; overflow:hidden; color:#756253; font-size:9px; line-height:1.35; text-overflow:ellipsis; white-space:nowrap; }
 .role-skill-popover {
   position: absolute;
   z-index: 30;
@@ -2458,6 +2468,17 @@ button {
 .note-editor textarea {
   min-height: 180px;
 }
+.player-role-note-editor { max-height:min(72vh,720px); padding:0 2px 18px; overflow-y:auto; overscroll-behavior:contain; }
+.player-role-note-editor > label:first-child { margin-top:2px; }
+.note-role-shortcuts { margin-top:14px; }
+.note-new-role-picker { display:grid; gap:10px; margin-top:15px; }
+.note-new-role-picker > h3 { margin:0; color:#6b4b36; font-size:13px; }
+.single-player-role-notes { margin-top:14px; }
+.single-player-role-notes .notes-tabs,
+.single-player-role-notes .global-role-records > header,
+.single-player-role-notes .add-role-record-bottom { display:none; }
+.single-player-role-notes .player-notes .global-role-record { padding:10px; }
+.player-role-note-close { width:100%; min-height:46px; margin-top:14px; }
 .editor-actions {
   display: grid;
   grid-template-columns: 1fr 2fr;
@@ -4792,21 +4813,21 @@ body,
 .global-role-records > header button { min-height:38px; display:inline-flex; align-items:center; gap:5px; padding:0 12px; border:1px solid #c8aa7c; border-radius:9px; background:#fff7e7; color:#792827; font-weight:800; }
 .global-role-record-list { display:grid; gap:9px; }
 .player-notes .global-role-record { display:grid; gap:8px; padding:10px; border:1px solid #ddc9a9; border-radius:11px; background:#fffaf0; }
-.global-role-record-heading { display:grid; grid-template-columns:minmax(0,1fr) auto auto; align-items:center; gap:8px; }
+.global-role-record-heading { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:8px; }
 .role-record-current { min-width:0; display:flex; align-items:center; gap:9px; }
-.role-record-current > img,.role-record-placeholder { width:42px; height:42px; flex:none; display:grid; place-items:center; border-radius:50%; object-fit:cover; background:#eee5d7; }
+.role-record-avatar-button { width:42px; height:42px; flex:none; display:grid; place-items:center; padding:0; border:0; border-radius:50%; background:#eee5d7; cursor:pointer; }
+.role-record-avatar-button:focus-visible { outline:2px solid #8b292a; outline-offset:2px; }
+.role-record-avatar-button > img,.role-record-placeholder { width:42px; height:42px; display:grid; place-items:center; border-radius:50%; object-fit:cover; background:#eee5d7; }
 .role-record-current > span:last-child { min-width:0; display:grid; gap:2px; }
 .role-record-current b { color:#52382c; font-size:12px; overflow-wrap:anywhere; }
 .role-record-info-preview { display:-webkit-box; overflow:hidden; color:#735e4e; font-size:10px; line-height:1.35; -webkit-box-orient:vertical; -webkit-line-clamp:2; }
 .global-role-record-heading em { color:#7a685b; font-size:10px; font-style:normal; white-space:normal; }
-.global-role-record-heading > button { min-height:34px; display:grid; place-items:center; border:0; border-radius:8px; background:#f6e9d8; color:#8a2929; }
-.global-role-record-heading .role-record-change { padding:0 11px; border:1px solid #d1b78f; background:#fff7e8; font-size:11px; font-weight:800; }
-.global-role-record-heading .role-record-delete { width:34px; padding:0; }
-.role-record-header-actions { display:flex; align-items:center; gap:6px; }
+.role-record-header-actions { display:flex; align-items:center; gap:4px; padding:3px; border:1px solid #ddc8a7; border-radius:10px; background:#f5e8d6; }
 .role-record-header-actions > button { min-height:34px; display:inline-flex; align-items:center; justify-content:center; gap:4px; padding:0 10px; border:1px solid #d1b78f; border-radius:8px; background:#fff7e8; color:#7d2928; font-size:11px; font-weight:800; }
+.role-record-header-actions .role-record-delete { width:34px; padding:0; border-color:transparent; background:transparent; }
 .role-record-header-actions > button:disabled { opacity:.42; cursor:not-allowed; }
 .role-record-header-actions svg { width:13px; height:13px; }
-.role-record-info-editor { display:grid; gap:7px; padding:9px; border:1px solid #d7c09c; border-radius:9px; background:#f8efe1; }
+.role-record-info-editor { display:grid; gap:10px; margin:4px 0 8px; padding:10px; border:1px solid #d7c09c; border-radius:9px; background:#f8efe1; scroll-margin-block:96px 220px; }
 .global-role-record .role-record-info-editor textarea { min-height:76px; }
 .role-record-info-editor > div { display:flex; justify-content:flex-end; gap:7px; }
 .role-record-info-editor button { min-height:34px; padding:0 12px; border:1px solid #c9ae87; border-radius:7px; background:#fff8eb; color:#715545; font-weight:800; }
@@ -4820,11 +4841,13 @@ body,
 .smart-action-title { display:flex; align-items:center; justify-content:space-between; gap:10px; color:#725b49; font-size:11px; }
 .smart-action-title button { min-height:32px; display:inline-flex; align-items:center; gap:4px; padding:0 9px; border:1px solid #c9ad83; border-radius:8px; background:#f8ecd8; color:#7d2928; font-weight:800; }
 .smart-action-card { display:grid; gap:8px; padding:9px; border:1px solid #d6c09d; border-radius:9px; background:#f9f1e4; }
-.smart-action-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(112px,1fr)); gap:7px; }
+.smart-action-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(126px,1fr)); align-items:end; gap:8px; }
+.smart-action-field { align-self:stretch; grid-template-rows:minmax(24px,auto) 36px; align-content:end; }
 .smart-action-card label { display:grid; gap:4px; color:#715a49; font-size:10px; font-weight:700; }
 .smart-action-card input,.smart-action-card select { width:100%; min-width:0; height:36px; box-sizing:border-box; padding:0 8px; border:1px solid #cdb695; border-radius:7px; background:#fffaf0; color:#4f392e; }
 .smart-action-card .smart-number-range { justify-self:end; color:#8a7565; font-size:9px; font-weight:500; }
 .global-role-record .smart-action-detail textarea { min-height:58px; resize:vertical; }
+.smart-action-card.is-editing { scroll-margin-block:96px 220px; }
 .smart-action-conclusion { margin:0; padding:8px 9px; border-left:3px solid #7d2928; border-radius:5px; background:#f1e6d6; color:#5e493b; font-size:11px; line-height:1.5; }
 .smart-action-conclusion b { display:inline; margin-right:6px; color:#7d2928; }
 .smart-action-delete { justify-self:end; border:0; background:transparent; color:#916c58; font-size:10px; }
@@ -4874,11 +4897,15 @@ body,
 .daily-vote-record > footer .not-executed { background:#eee4d5; color:#786557; }
 @media (max-width:430px) {
   .global-role-record-heading { grid-template-columns:minmax(0,1fr) auto; }
-  .role-record-current { grid-column:1 / -1; }
-  .role-record-header-actions { min-width:0; }
-  .role-record-header-actions > button { padding-inline:8px; }
-  .global-role-record-heading .role-record-delete { grid-column:2; grid-row:2; justify-self:end; }
+  .role-record-current { min-width:0; }
+  .role-record-current > span:last-child { max-width:112px; }
+  .role-record-header-actions { min-width:0; gap:2px; padding:2px; }
+  .role-record-header-actions > button { min-height:32px; gap:2px; padding-inline:6px; font-size:10px; }
+  .role-record-header-actions .role-record-delete { width:30px; }
+  .role-record-header-actions svg { width:12px; height:12px; }
   .role-record-role-picker { max-height:42vh; padding-inline:6px; }
+  .smart-action-row { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .smart-action-detail { grid-column:1 / -1; }
   .smart-action-summary { grid-template-columns:50px minmax(0,1fr) auto; }
 }
 @media (min-width: 1024px) {
@@ -4947,9 +4974,14 @@ body,
 .shared-game-entry b { font-size:14px; }
 .shared-game-entry span { display:block; margin-top:4px; color:#806b5b; font-size:12px; }
 .shared-game-entry--created { border-color:#9b5a48; background:rgba(255,247,230,.9); }
-.shared-room-strip { display:flex; align-items:center; justify-content:flex-end; gap:8px; margin:0 20px 8px; color:#735443; font-size:12px; }
-.shared-room-strip b { letter-spacing:.12em; color:#792321; }
-.shared-room-strip button { border:1px solid #cdb389; border-radius:7px; background:#fff7e6; color:#6a382c; padding:4px 8px; font:inherit; }
+.shared-room-strip { display:flex; align-items:center; justify-content:space-between; gap:10px; margin:0 10px 8px 6px; color:#735443; font-size:12px; }
+.shared-room-strip__summary { min-width:0; display:flex; align-items:center; gap:7px; padding:3px 2px; overflow:hidden; border:0; background:transparent; color:inherit; font:inherit; text-align:left; cursor:pointer; }
+.shared-room-strip__summary b { flex:none; letter-spacing:.12em; color:#792321; }
+.shared-room-strip__summary span { flex:none; white-space:nowrap; }
+.shared-room-strip__summary i { color:#a88e79; font-style:normal; }
+.shared-room-strip__actions { flex:none; display:flex; align-items:center; gap:5px; }
+.shared-room-strip__actions button { min-height:29px; display:inline-flex; align-items:center; justify-content:center; gap:4px; padding:3px 8px; border:1px solid #cdb389; border-radius:7px; background:#fff7e6; color:#6a382c; font-family:inherit; font-size:10px; font-weight:700; line-height:1; }
+.shared-room-strip__actions svg { width:13px; height:13px; }
 .shared-room-sheet { display:grid; gap:14px; padding:8px 0 20px; }
 .shared-room-sheet label { display:grid; gap:7px; color:#5a4132; font-weight:700; }
 .shared-room-sheet input { min-height:48px; border:1px solid #b99668; border-radius:10px; padding:0 14px; letter-spacing:.14em; text-transform:uppercase; font-weight:800; font-size:18px; background:#fff8e9; }
@@ -4961,7 +4993,11 @@ body,
 @media (max-width:699px) {
   .shared-game-entry { margin:0 14px 14px; align-items:flex-start; flex-direction:column; gap:10px; }
   .shared-game-entry .ui-button { width:100%; }
-  .shared-room-strip { margin:4px 14px 8px; justify-content:flex-start; flex-wrap:wrap; }
+  .shared-room-strip { margin:4px 8px 8px 2px; gap:6px; }
+  .shared-room-strip__summary { gap:5px; font-size:10px; }
+  .shared-room-strip__summary span:first-child { display:none; }
+  .shared-room-strip__actions { gap:3px; }
+  .shared-room-strip__actions button { min-height:28px; padding-inline:6px; }
 }
 
 /* Shared cloud lobby and room details. Kept separate from game-flow UI. */
@@ -4995,11 +5031,16 @@ body,
 .cloud-room-card__meta span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#806e62; font-size:11px; }
 .cloud-room-card__status { padding-top:7px; border-top:1px solid rgba(147,111,75,.17); color:#64493a; font-size:12px; font-weight:700; }
 .cloud-list-message { padding:48px 20px; text-align:center; color:#877467; }
-.shared-room-strip { border:0; background:transparent; cursor:pointer; }
 .shared-detail-sheet { height:100%; min-height:0; display:grid; grid-template-rows:minmax(0,1fr) auto; }
 .shared-detail-scroll { min-height:0; overflow:auto; display:grid; align-content:start; gap:16px; padding:2px 2px 18px; }
 .sync-state,.presence-row { display:flex; justify-content:space-between; align-items:center; gap:14px; padding:13px 14px; border-radius:11px; background:#f8f0e2; color:#684c3d; }
 .sync-state--synced b { color:#2f704c; }.sync-state--failed b { color:#9c302e; }.sync-state--syncing b { color:#96641f; }
+.shared-room-identity { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:2px 1px 10px; border-bottom:1px solid rgba(105,73,48,.14); }
+.shared-room-identity > div { min-width:0; display:flex; align-items:baseline; gap:9px; }
+.shared-room-identity b { flex:none; color:#7e2726; font-size:18px; letter-spacing:.14em; }
+.shared-room-identity span { min-width:0; overflow:hidden; color:#735f51; font-size:12px; text-overflow:ellipsis; white-space:nowrap; }
+.sync-badge { flex:none; padding:4px 8px; border-radius:999px; background:#e5efe7; color:#2f704c; font-size:10px; font-style:normal; font-weight:800; }
+.sync-badge--failed { background:#f3dfdc; color:#9c302e; }.sync-badge--syncing { background:#f1e5cb; color:#96641f; }
 .room-name-editor { display:grid; grid-template-columns:1fr auto; gap:9px; }
 .room-name-editor label,.share-room-actions h3 { grid-column:1/-1; margin:0; color:#5a3e30; font-size:13px; font-weight:800; }
 .room-name-editor > div { position:relative; }
@@ -5009,9 +5050,13 @@ body,
 .room-name-editor .room-name-field input { flex:1; min-width:36px; width:auto; min-height:40px; padding:0 2px; border:0; border-radius:0; background:transparent; font-weight:800; outline:none; }
 .room-name-editor > div span { position:absolute; right:12px; top:50%; transform:translateY(-50%); color:#9a887b; font-size:11px; }
 .room-name-editor button { min-width:84px; }
+.room-name-readonly { grid-column:1/-1; min-height:46px; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:0 0 0 2px; }
+.room-name-readonly > b { min-width:0; overflow:hidden; color:#543b2f; font-size:14px; text-overflow:ellipsis; white-space:nowrap; }
+.room-name-readonly > button { min-width:auto; display:inline-flex; align-items:center; gap:5px; padding:7px 9px; border:1px solid #cfb58e; border-radius:8px; background:#fff7e7; color:#704537; }
+.room-name-readonly svg { width:14px; height:14px; }
 .share-room-actions { display:grid; gap:9px; }
-.share-code-row { display:grid; grid-template-columns:minmax(0,1fr) auto auto auto; gap:7px; align-items:center; }
-.share-code-row b { min-height:44px; display:flex; align-items:center; padding:0 13px; border:1px solid #d2bb95; border-radius:9px; background:#fff8e9; color:#7e2726; letter-spacing:.18em; }
+.share-code-row { display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:7px; align-items:center; }
+.share-code-row b { min-height:44px; display:flex; align-items:center; padding:0 2px; color:#7e2726; font-size:21px; letter-spacing:.18em; }
 .share-code-row button { min-height:44px; display:inline-flex; align-items:center; justify-content:center; gap:5px; padding:0 12px; border:1px solid #c9ab7e; border-radius:9px; background:#fff7e7; color:#654133; }
 .share-code-row svg { width:16px; height:16px; }
 .room-times { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
@@ -5027,7 +5072,7 @@ body,
   .cloud-lobby { grid-template-columns:1fr; margin:0 0 18px; }
   .cloud-room-list-heading,.cloud-room-list { grid-column:1; }
   .cloud-room-list { max-height:none; margin-top:-19px; }
-  .share-code-row { grid-template-columns:1fr auto auto; }.share-code-row b { grid-column:1/-1; }
+  .share-code-row { grid-template-columns:minmax(0,1fr) auto auto; }.share-code-row b { grid-column:auto; }
   .room-times { grid-template-columns:1fr; }.room-times div:last-child { text-align:left; }
 }
 .start-heading-row {
