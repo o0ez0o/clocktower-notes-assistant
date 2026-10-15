@@ -4777,6 +4777,8 @@ body,
 .smart-action-edit-actions .save { border-color:#8b292a; background:#8b292a; color:#fff; }
 .smart-action-edit-actions .save:disabled { opacity:.4; cursor:not-allowed; }
 .smart-action-validation { color:#9a4a3f; font-size:9px; }
+.smart-zero-result { display:flex; align-items:center; gap:7px; width:max-content; max-width:100%; color:#634b3d; font-size:11px; font-weight:700; }
+.smart-zero-result input { width:17px; height:17px; margin:0; accent-color:#8b292a; }
 .smart-action-summary { display:grid; grid-template-columns:54px minmax(0,1fr) auto; align-items:center; gap:9px; padding:7px 0; border:0; border-bottom:1px solid rgba(121,83,54,.16); background:transparent; }
 .smart-action-summary:last-child { border-bottom:0; }
 .smart-action-summary > strong { color:#7d2928; font-size:11px; font-weight:800; white-space:nowrap; }
