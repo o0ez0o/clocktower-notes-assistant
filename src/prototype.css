@@ -4761,6 +4761,7 @@ body,
 .smart-action-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(112px,1fr)); gap:7px; }
 .smart-action-card label { display:grid; gap:4px; color:#715a49; font-size:10px; font-weight:700; }
 .smart-action-card input,.smart-action-card select { width:100%; min-width:0; height:36px; box-sizing:border-box; padding:0 8px; border:1px solid #cdb695; border-radius:7px; background:#fffaf0; color:#4f392e; }
+.smart-action-card .smart-number-range { justify-self:end; color:#8a7565; font-size:9px; font-weight:500; }
 .global-role-record .smart-action-detail textarea { min-height:58px; resize:vertical; }
 .smart-action-conclusion { margin:0; padding:8px 9px; border-left:3px solid #7d2928; border-radius:5px; background:#f1e6d6; color:#5e493b; font-size:11px; line-height:1.5; }
 .smart-action-conclusion b { display:inline; margin-right:6px; color:#7d2928; }

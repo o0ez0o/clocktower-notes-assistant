@@ -154,6 +154,8 @@ type RoleActionPattern = {
   targetCount: 0 | 1 | 2 | 3;
   prompt: string;
   valueLabel: string;
+  numberMin?: number;
+  numberMax?: number | "players";
 };
 type Relation = {
   id: number;
@@ -696,6 +698,7 @@ const actionPatternForRole = (role: Role): RoleActionPattern => {
   if (role.id === "poisoner" || (/中毒/.test(ability) && /选择/.test(ability))) return { kind: "target", targetCount: 1, prompt: "选择本夜被施加中毒的玩家", valueLabel: "中毒目标" };
   if (role.id === "fortuneteller") return { kind: "yesno", targetCount: 2, prompt: "选择本夜查验的两名玩家", valueLabel: "是否有恶魔" };
   if (role.id === "chef") return { kind: "number", targetCount: 0, prompt: "记录首夜得到的信息", valueLabel: "相邻邪恶玩家对数" };
+  if (role.id === "mathematician") return { kind: "number", targetCount: 0, prompt: "记录因其他角色能力影响而未正常生效的玩家数量", valueLabel: "异常生效人数", numberMin: 0, numberMax: "players" };
   if (role.id === "artist") return { kind: "yesno", targetCount: 0, prompt: "记录向说书人提出的问题", valueLabel: "说书人回答" };
   const targetCount: 0 | 1 | 2 = /选择.{0,8}(两|2)名玩家/.test(ability) ? 2 : /选择.{0,8}(一|1)名玩家|选择一名|选择1名/.test(ability) ? 1 : 0;
   if (/多少|数量|几名|几对|距离/.test(ability)) return { kind: "number", targetCount, prompt: "记录本次获得的数字信息", valueLabel: "得到数字" };
@@ -713,6 +716,12 @@ const roleActionConclusion = (role: Role, action: RoleAction, players: Player[])
     ? `${targetText || "所选玩家"}中至少一名是恶魔或红鲱鱼。`
     : `${targetText || "所选玩家"}均未被查验为恶魔。`;
   if (role.id === "chef") return `场上有 ${action.value || "0"} 对相邻的邪恶玩家。`;
+  if (role.id === "mathematician") {
+    const count = Math.max(0, Math.min(players.length, Number(action.value) || 0));
+    return count === 0
+      ? "没有玩家的角色能力因其他角色的能力而未正常生效。"
+      : `有 ${count} 名玩家的角色能力因其他角色的能力而未正常生效。`;
+  }
   if (role.id === "artist") return `艺术家提问“${action.detail || "未填写问题"}”，说书人的回答是“${action.value || "未填写"}”。`;
   if (role.id === "poisoner" || (/中毒/.test(role.abilityZh || "") && /选择/.test(role.abilityZh || ""))) return `${targetText || "所选玩家"}在第 ${action.day} 天被标记为中毒。`;
   if (role.team === "恶魔") return `${targetText || "所选玩家"}在第 ${action.day} 天被标记为死亡。`;
@@ -3464,6 +3473,7 @@ function Notes({
                       {[...(record.actions || [])].sort((a, b) => a.day - b.day).map((action) => {
                         const editing = action.saved === false || editingActionId === action.id;
                         const selectedResultRole = noteRoles.find((item) => item.id === action.resultRoleId) || roles.find((item) => item.id === action.resultRoleId);
+                        const numberMax = pattern.numberMax === "players" ? players.length : pattern.numberMax;
                         const removeAction = () => { onRemoveAction(role, action); setRoleRecords((records) => records.map((item) => item.id === record.id ? { ...item, actions: (item.actions || []).filter((entry) => entry.id !== action.id) } : item)); };
                         return editing ? (
                           <section className="smart-action-card is-editing" key={action.id}>
@@ -3472,7 +3482,7 @@ function Notes({
                               {Array.from({ length: pattern.targetCount }, (_, index) => (
                                 <label key={index}>{t("目标")} {index + 1}<select value={action.targets[index] || ""} onChange={(event) => { const targets = [...action.targets]; targets[index] = Number(event.target.value); updateAction(action.id, { targets }); }}><option value="">—</option>{players.map((player) => <option value={player.id} key={player.id}>{player.id}{t("号玩家")}{player.role ? ` · ${player.role.zh}` : ""}</option>)}</select></label>
                               ))}
-                              {pattern.kind !== "role" && <label>{pattern.valueLabel}{pattern.kind === "yesno" ? <select value={action.value} onChange={(event) => updateAction(action.id, { value: event.target.value })}><option value="是">{t("是")}</option><option value="否">{t("否")}</option><option value="不确定">{t("不确定")}</option></select> : <input type={pattern.kind === "number" ? "number" : "text"} value={action.value} onChange={(event) => updateAction(action.id, { value: event.target.value })} />}</label>}
+                              {pattern.kind !== "role" && <label>{pattern.valueLabel}{pattern.kind === "yesno" ? <select value={action.value} onChange={(event) => updateAction(action.id, { value: event.target.value })}><option value="是">{t("是")}</option><option value="否">{t("否")}</option><option value="不确定">{t("不确定")}</option></select> : <><input type={pattern.kind === "number" ? "number" : "text"} min={pattern.kind === "number" ? pattern.numberMin ?? 0 : undefined} max={pattern.kind === "number" ? numberMax : undefined} value={action.value} onChange={(event) => { if (pattern.kind !== "number") return updateAction(action.id, { value: event.target.value }); const value = Math.max(pattern.numberMin ?? 0, Math.min(numberMax ?? Number.MAX_SAFE_INTEGER, Number(event.target.value) || 0)); updateAction(action.id, { value: String(value) }); }} />{pattern.kind === "number" && numberMax !== undefined && <small className="smart-number-range">{pattern.numberMin ?? 0}–{numberMax}</small>}</>}</label>}
                               {pattern.kind === "role" && <label>{pattern.valueLabel}<button className="smart-role-result-trigger" onClick={() => setActionRolePickerId((current) => current === action.id ? null : action.id)}>{selectedResultRole ? <><img src={selectedResultRole.image} alt="" />{selectedResultRole.zh}</> : t("选择角色")}</button></label>}
                             </div>
                             {pattern.kind === "role" && actionRolePickerId === action.id && <div className="smart-role-result-picker"><RoleSelectionGrid language={language} availableRoles={noteRoles} selectedRoleId={action.resultRoleId} showNames onSelect={(selectedRole) => { updateAction(action.id, { resultRoleId: selectedRole.id, value: selectedRole.zh }); setActionRolePickerId(null); }} /></div>}
