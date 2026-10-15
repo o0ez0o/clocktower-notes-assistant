@@ -145,6 +145,8 @@ type RoleAction = {
   targets: number[];
   value: string;
   detail: string;
+  resultRoleId?: string;
+  saved?: boolean;
 };
 type RoleActionPattern = {
   kind: "yesno" | "number" | "role" | "text" | "target";
@@ -703,7 +705,10 @@ const roleActionConclusion = (role: Role, action: RoleAction, players: Player[])
   const pattern = actionPatternForRole(role);
   if (pattern.kind === "number") return `${role.zh}获得数字 ${action.value || "未填写"}${targetText ? `，关联${targetText}` : ""}。`;
   if (pattern.kind === "yesno") return `${role.zh}${targetText ? `查验${targetText}` : "获得信息"}，结果为“${action.value || "未填写"}”。`;
-  if (pattern.kind === "role") return `${role.zh}查验${targetText || "目标"}，得知角色为“${action.value || "未填写"}”。`;
+  if (pattern.kind === "role") {
+    const learnedRole = roles.find((item) => item.id === action.resultRoleId);
+    return `${role.zh}查验${targetText || "目标"}，得知角色为“${learnedRole?.zh || action.value || "未填写"}”。`;
+  }
   return `${role.zh}${targetText ? `选择${targetText}` : "进行了能力行动"}${action.value ? `，结果：${action.value}` : ""}${action.detail ? `；${action.detail}` : ""}。`;
 };
 const localizedToast = (language: Language, value: string) =>
@@ -3167,7 +3172,7 @@ export default function Prototype() {
       >
         <button
           aria-label={t("关闭")}
-          className="desktop-modal-close"
+          className="desktop-modal-close notes-panel-close"
           onClick={() => setNotes(false)}
         >
           <Cross2Icon />
@@ -3317,12 +3322,14 @@ function Notes({
   const t = (text: string) => translate(language, text);
   const [tab, setTab] = useState<"roles" | "votes">(initialTab || "roles");
   const [roleRecordPickerId, setRoleRecordPickerId] = useState<number | null>(null);
+  const [editingActionId, setEditingActionId] = useState<number | null>(null);
+  const [actionRolePickerId, setActionRolePickerId] = useState<number | null>(null);
+  const dayOptions = Array.from({ length: Math.max(5, day) }, (_, index) => index + 1);
   const roleFor = (record: RoleRecord) => availableRoles.find((role) => role.id === record.roleId) || roles.find((role) => role.id === record.roleId);
   const roleRecordsList = (
     <section className="global-role-records">
       <header>
         <div><b>{t("角色记录")}</b><small>{t("记录跟随角色；分配给玩家后自动绑定该玩家")}</small></div>
-        <button onClick={() => setRoleRecords((records) => [...records, { id: Date.now(), text: "" }])}><PlusIcon />{t("添加角色")}</button>
       </header>
       {roleRecords.length ? (
         <div className="global-role-record-list">
@@ -3336,7 +3343,15 @@ function Notes({
                     {role ? <img src={role.image} alt="" /> : <span className="role-record-placeholder"><PlusIcon /></span>}
                     <span><b>{role ? (language === "zh" ? role.zh : `${role.zh} (${role.en})`) : t("尚未选择角色")}</b>{player && <em>{t("已绑定玩家")} {player.id}{player.name ? ` · ${player.name}` : ""}</em>}</span>
                   </div>
-                  {!player && <button className="role-record-change" onClick={() => setRoleRecordPickerId((current) => current === record.id ? null : record.id)}>{role ? t("更换角色") : t("选择角色")}</button>}
+                  <div className="role-record-header-actions">
+                    {!player && <button className="role-record-change" onClick={() => setRoleRecordPickerId((current) => current === record.id ? null : record.id)}>{role ? t("更换角色") : t("选择角色")}</button>}
+                    {role && <button className="role-record-add-action" onClick={() => {
+                      const actionId = Date.now();
+                      const pattern = actionPatternForRole(role);
+                      setRoleRecords((records) => records.map((item) => item.id === record.id ? { ...item, actions: [...(item.actions || []), { id: actionId, day, targets: [], value: pattern.kind === "yesno" ? "是" : pattern.kind === "number" ? "0" : "", detail: "", saved: false }] } : item));
+                      setEditingActionId(actionId);
+                    }}><PlusIcon />{t("添加行动")}</button>}
+                  </div>
                   <button className="role-record-delete" aria-label={t("删除")} onClick={() => setRoleRecords((records) => records.filter((item) => item.id !== record.id))}><TrashIcon /></button>
                 </div>
                 {!player && (!role || roleRecordPickerId === record.id) && (
@@ -3362,21 +3377,34 @@ function Notes({
                     : item));
                   return (
                     <div className="smart-action-editor">
-                      <div className="smart-action-title"><span>{pattern.prompt}</span><button onClick={() => setRoleRecords((records) => records.map((item) => item.id === record.id ? { ...item, actions: [...(item.actions || []), { id: Date.now(), day, targets: [], value: pattern.kind === "yesno" ? "是" : pattern.kind === "number" ? "0" : "", detail: "" }] } : item))}><PlusIcon />{t("添加行动")}</button></div>
-                      {(record.actions || []).map((action) => (
-                        <section className="smart-action-card" key={action.id}>
-                          <div className="smart-action-row">
-                            <label>{t("天数")}<input type="number" min="1" value={action.day} onChange={(event) => updateAction(action.id, { day: Math.max(1, Number(event.target.value) || 1) })} /></label>
-                            {Array.from({ length: pattern.targetCount }, (_, index) => (
-                              <label key={index}>{t("目标")} {index + 1}<select value={action.targets[index] || ""} onChange={(event) => { const targets = [...action.targets]; targets[index] = Number(event.target.value); updateAction(action.id, { targets }); }}><option value="">—</option>{players.map((player) => <option value={player.id} key={player.id}>{player.id}{t("号玩家")}{player.role ? ` · ${player.role.zh}` : ""}</option>)}</select></label>
-                            ))}
-                            <label>{pattern.valueLabel}{pattern.kind === "yesno" ? <select value={action.value} onChange={(event) => updateAction(action.id, { value: event.target.value })}><option value="是">{t("是")}</option><option value="否">{t("否")}</option><option value="不确定">{t("不确定")}</option></select> : <input type={pattern.kind === "number" ? "number" : "text"} value={action.value} onChange={(event) => updateAction(action.id, { value: event.target.value })} />}</label>
-                          </div>
-                          {(pattern.kind === "text" || role.id === "artist" || pattern.kind === "target") && <label className="smart-action-detail">{role.id === "artist" ? t("提问内容") : t("补充记录")}<textarea value={action.detail} onChange={(event) => updateAction(action.id, { detail: event.target.value })} /></label>}
-                          <p className="smart-action-conclusion"><b>{t("结论")}</b>{roleActionConclusion(role, action, players)}</p>
-                          <button className="smart-action-delete" onClick={() => setRoleRecords((records) => records.map((item) => item.id === record.id ? { ...item, actions: (item.actions || []).filter((entry) => entry.id !== action.id) } : item))}>{t("删除本条")}</button>
-                        </section>
-                      ))}
+                      <div className="smart-action-title"><span>{pattern.prompt}</span></div>
+                      {[...(record.actions || [])].sort((a, b) => a.day - b.day).map((action) => {
+                        const editing = action.saved === false || editingActionId === action.id;
+                        const selectedResultRole = availableRoles.find((item) => item.id === action.resultRoleId) || roles.find((item) => item.id === action.resultRoleId);
+                        const removeAction = () => setRoleRecords((records) => records.map((item) => item.id === record.id ? { ...item, actions: (item.actions || []).filter((entry) => entry.id !== action.id) } : item));
+                        return editing ? (
+                          <section className="smart-action-card is-editing" key={action.id}>
+                            <div className="smart-action-row">
+                              <label>{t("天数")}<select value={action.day} onChange={(event) => updateAction(action.id, { day: Number(event.target.value) })}>{dayOptions.map((optionDay) => <option value={optionDay} key={optionDay}>{t("第")} {optionDay} {t("天")}</option>)}</select></label>
+                              {Array.from({ length: pattern.targetCount }, (_, index) => (
+                                <label key={index}>{t("目标")} {index + 1}<select value={action.targets[index] || ""} onChange={(event) => { const targets = [...action.targets]; targets[index] = Number(event.target.value); updateAction(action.id, { targets }); }}><option value="">—</option>{players.map((player) => <option value={player.id} key={player.id}>{player.id}{t("号玩家")}{player.role ? ` · ${player.role.zh}` : ""}</option>)}</select></label>
+                              ))}
+                              {pattern.kind !== "role" && <label>{pattern.valueLabel}{pattern.kind === "yesno" ? <select value={action.value} onChange={(event) => updateAction(action.id, { value: event.target.value })}><option value="是">{t("是")}</option><option value="否">{t("否")}</option><option value="不确定">{t("不确定")}</option></select> : <input type={pattern.kind === "number" ? "number" : "text"} value={action.value} onChange={(event) => updateAction(action.id, { value: event.target.value })} />}</label>}
+                              {pattern.kind === "role" && <label>{pattern.valueLabel}<button className="smart-role-result-trigger" onClick={() => setActionRolePickerId((current) => current === action.id ? null : action.id)}>{selectedResultRole ? <><img src={selectedResultRole.image} alt="" />{selectedResultRole.zh}</> : t("选择角色")}</button></label>}
+                            </div>
+                            {pattern.kind === "role" && actionRolePickerId === action.id && <div className="smart-role-result-picker"><RoleSelectionGrid language={language} availableRoles={availableRoles} selectedRoleId={action.resultRoleId} showNames onSelect={(selectedRole) => { updateAction(action.id, { resultRoleId: selectedRole.id, value: selectedRole.zh }); setActionRolePickerId(null); }} /></div>}
+                            {(pattern.kind === "text" || role.id === "artist" || pattern.kind === "target") && <label className="smart-action-detail">{role.id === "artist" ? t("提问内容") : t("补充记录")}<textarea value={action.detail} onChange={(event) => updateAction(action.id, { detail: event.target.value })} /></label>}
+                            <p className="smart-action-conclusion"><b>{t("结论")}</b>{roleActionConclusion(role, action, players)}</p>
+                            <div className="smart-action-edit-actions"><button onClick={removeAction}>{t("删除本条")}</button><button className="save" onClick={() => { updateAction(action.id, { saved: true }); setEditingActionId(null); setActionRolePickerId(null); }}>{t("保存")}</button></div>
+                          </section>
+                        ) : (
+                          <section className="smart-action-summary" key={action.id}>
+                            <strong>{t("第")} {action.day} {t("天")}</strong>
+                            <div><span>{pattern.valueLabel}</span><p>{roleActionConclusion(role, action, players)}</p>{action.detail && role.id !== "artist" && <small>{action.detail}</small>}</div>
+                            <div className="smart-action-summary-actions"><button onClick={() => setEditingActionId(action.id)}>{t("编辑")}</button><button onClick={removeAction}>{t("删除")}</button></div>
+                          </section>
+                        );
+                      })}
                     </div>
                   );
                 })()}
@@ -3391,6 +3419,7 @@ function Notes({
           })}
         </div>
       ) : <p className="empty">{t("还没有角色记录，点击添加角色开始记录")}</p>}
+      <button className="add-role-record-bottom" onClick={() => { const recordId = Date.now(); setRoleRecords((records) => [...records, { id: recordId, text: "" }]); setRoleRecordPickerId(recordId); }}><PlusIcon />{t("添加角色")}</button>
     </section>
   );
   return (

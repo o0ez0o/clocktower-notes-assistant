@@ -529,6 +529,25 @@ body,
   border: 0 !important;
   border-radius: 0 !important;
 }
+
+/* Overall notes is a full-screen workspace on mobile. */
+@media (max-width: 699px) {
+  .bottom-sheet:has(.notes-panel-close) {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100dvh !important;
+    max-width: none !important;
+    max-height: 100dvh !important;
+    transform: none !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+  }
+  .bottom-sheet:has(.notes-panel-close) .sheet-handle-zone { display:none !important; }
+  .bottom-sheet:has(.notes-panel-close) .sheet-header { min-height:64px; padding:14px 62px 10px 16px !important; }
+  .bottom-sheet:has(.notes-panel-close) .sheet-content { min-height:0; overflow-y:auto !important; padding:0 14px calc(16px + env(safe-area-inset-bottom)) !important; }
+  .notes-panel-close { position:absolute !important; z-index:12; top:13px !important; right:14px !important; width:38px !important; height:38px !important; display:grid !important; place-items:center; padding:0; border:1px solid rgba(92,64,43,.2); border-radius:10px; background:#f8efe0; color:#624535; }
+}
 .bottom-sheet:has(.board-info-panel-close) .sheet-handle-zone {
   display: none !important;
 }
