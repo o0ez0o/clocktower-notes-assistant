@@ -553,29 +553,31 @@ const zhunShenRoleIds = [
   "zhunshen-yingsuzhongzhizhe", "lunatic", "zhunshen-yinshi", "drunk", "recluse", "moonchild",
   "godfather", "zhunshen-gudiao", "psychopath", "assassin", "imp", "fanggu",
 ];
+const standardTravellerRoleIds = ["bureaucrat", "thief", "gunslinger", "beggar", "scapegoat"];
+const withStandardTravellers = (roleIds: string[]) => [...new Set([...roleIds, ...standardTravellerRoleIds])];
 const defaultBoards: ScriptBoard[] = [
   {
     id: "tb",
     name: "暗流涌动（Trouble Brewing）",
-    roleIds: makeRoles([...tb, ...tbExtra], "tb").map((r) => r.id),
+    roleIds: withStandardTravellers(makeRoles([...tb, ...tbExtra], "tb").map((r) => r.id)),
     official: true,
   },
   {
     id: "bmr",
     name: "黯月初升（Bad Moon Rising）",
-    roleIds: makeRoles(bmr, "bmr").map((r) => r.id),
+    roleIds: withStandardTravellers(makeRoles(bmr, "bmr").map((r) => r.id)),
     official: true,
   },
   {
     id: "snv",
     name: "梦殒春宵（Sects & Violets）",
-    roleIds: makeRoles(snv, "snv").map((r) => r.id),
+    roleIds: withStandardTravellers(makeRoles(snv, "snv").map((r) => r.id)),
     official: true,
   },
   {
     id: "quasi-accurate",
     name: "似准非准",
-    roleIds: quasiAccurateRoleIds,
+    roleIds: withStandardTravellers(quasiAccurateRoleIds),
     official: true,
     author: "魏准",
     sourceLabel: "玩家自制板子",
@@ -583,7 +585,7 @@ const defaultBoards: ScriptBoard[] = [
   {
     id: "fan-su-ji",
     name: "凡俗集",
-    roleIds: fanSuJiRoleIds,
+    roleIds: withStandardTravellers(fanSuJiRoleIds),
     official: true,
     author: "苏通染",
     sourceLabel: "玩家自制板子",
@@ -592,7 +594,7 @@ const defaultBoards: ScriptBoard[] = [
   {
     id: "zhun-shen-chu-ji",
     name: "准神出击？",
-    roleIds: zhunShenRoleIds,
+    roleIds: withStandardTravellers(zhunShenRoleIds),
     official: true,
     author: "Zhun",
     sourceLabel: "玩家自制板子",
@@ -613,11 +615,11 @@ const defaultBoards: ScriptBoard[] = [
   {
     id: "all-amnesiac",
     name: "全员失忆（官三板角色池）",
-    roleIds: [...new Set([
+    roleIds: withStandardTravellers([...new Set([
       ...makeRoles([...tb, ...tbExtra], "tb").map((r) => r.id),
       ...makeRoles(bmr, "bmr").map((r) => r.id),
       ...makeRoles(snv, "snv").map((r) => r.id),
-    ])],
+    ])]),
     official: true,
     author: "",
     sourceLabel: "社区特殊规则板子",
@@ -1164,7 +1166,7 @@ export default function Prototype() {
     .filter((r) => currentBoard?.roleIds.includes(r.id))
     .map((role) => role.abilityZh || !officialRoleText[role.id]?.ability ? role : { ...role, abilityZh: officialRoleText[role.id].ability });
   const regularBoardRoles = boardRoles.filter((role) => role.team !== "旅行者");
-  const travellerRoles = roles.filter((role) => role.team === "旅行者");
+  const travellerRoles = boardRoles.filter((role) => role.team === "旅行者");
   const groups = useMemo(
     () => ({
       镇民: boardRoles.filter((r) => r.team === "镇民"),
