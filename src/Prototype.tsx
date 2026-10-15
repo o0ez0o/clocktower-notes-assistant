@@ -3916,25 +3916,6 @@ function VoteNotes({
   ).sort((a, b) => a - b);
   return (
     <div className="vote-notes">
-      <section className="daily-role-records">
-        <h3>{t("角色记录")}</h3>
-        {roleRecords.some((record) => record.roleId) ? roleRecords.map((record) => {
-          const role = availableRoles.find((item) => item.id === record.roleId) || roles.find((item) => item.id === record.roleId);
-          const player = players.find((item) => item.id === record.playerId);
-          if (!role) return null;
-          return (
-            <article className={`daily-role-record ${player ? "with-player" : "without-player"}`} key={record.id}>
-              {player && <strong className="daily-role-player-number">{player.id}</strong>}
-              <img src={role.image} alt="" />
-              <div>
-                <b>{language === "zh" ? role.zh : `${role.zh} (${role.en})`}</b>
-                {[...(record.actions || [])].sort((a, b) => a.day - b.day).map((action) => <p className="daily-smart-action" key={action.id}><em>{t("第")} {action.day} {t("天")}</em>{roleActionConclusion(role, action, players)}</p>)}
-                {!(record.actions || []).length && <p>{t("尚未填写记录")}</p>}
-              </div>
-            </article>
-          );
-        }) : <p className="empty">{t("还没有角色记录")}</p>}
-      </section>
       <section className="relation-insight">
         <span>{t("关系推测")}</span>
         <b>
@@ -3957,7 +3938,15 @@ function VoteNotes({
             (d) => d.day === recordDay && d.reason !== "revival",
           ).length,
           nominators = [...new Set(rs.map((relation) => relation.from))],
-          nominees = [...new Set(rs.map((relation) => relation.to))];
+          nominees = [...new Set(rs.map((relation) => relation.to))],
+          roleConclusions = roleRecords.flatMap((record) => {
+            const role = availableRoles.find((item) => item.id === record.roleId) || roles.find((item) => item.id === record.roleId);
+            if (!role) return [];
+            const player = players.find((item) => item.id === record.playerId);
+            return (record.actions || [])
+              .filter((action) => action.day === recordDay && action.saved !== false)
+              .map((action) => ({ record, role, player, action }));
+          });
         return (
           <section className="vote-day-group" key={recordDay}>
             <div className="day-vote-header">
@@ -3983,6 +3972,21 @@ function VoteNotes({
                 <span>{t("平安夜")}</span>
               </button>
             </div>
+            {roleConclusions.length > 0 && (
+              <div className="day-role-conclusions">
+                {roleConclusions.map(({ record, role, player, action }) => (
+                  <article className="day-role-conclusion" key={`${record.id}-${action.id}`}>
+                    <img src={role.image} alt="" />
+                    <b>
+                      {player
+                        ? `${player.id}${t("号玩家")}`
+                        : language === "zh" ? role.zh : role.en}
+                    </b>
+                    <p>{roleActionConclusion(role, action, players)}</p>
+                  </article>
+                ))}
+              </div>
+            )}
             <div className="daily-votes-section">
               <h4>{t("当天投票记录")}</h4>
               {rs.length ? (

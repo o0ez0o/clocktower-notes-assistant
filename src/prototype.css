@@ -4791,24 +4791,12 @@ body,
 .vote-notes { display:flex; flex-direction:column; gap:12px; }
 .vote-notes .daily-notes-section { display:none; }
 .vote-notes .relation-insight { order:99; margin-top:8px; }
-.daily-role-records { order:-1; display:grid; gap:7px; }
-.daily-role-records > h3 { margin:0; }
-.vote-notes .daily-role-record { display:grid; grid-template-columns:26px 38px minmax(0,1fr); align-items:start; gap:9px; padding:8px 9px; border:1px solid #ddccb1; border-radius:9px; background:#fffaf0; }
-.vote-notes .daily-role-record.without-player { grid-template-columns:38px minmax(0,1fr); }
-.daily-role-player-number { width:26px; height:26px; display:grid; place-items:center; margin-top:4px; border-radius:50%; background:#792522; color:#fff6e5; font-size:11px; }
-.daily-role-record > img { width:34px; height:34px; flex:none; border-radius:50%; object-fit:contain; }
-.daily-role-record > div { min-width:0; display:grid; gap:2px; }
-.vote-notes .daily-role-record b { font-size:12px; }
-.vote-notes .daily-role-record p { margin:0; color:#6d5036; font-size:11px; line-height:1.45; overflow-wrap:anywhere; }
-.daily-smart-action { display:grid; grid-template-columns:auto minmax(0,1fr); gap:6px; }
-.daily-smart-action em { color:#8d2a2b; font-size:10px; font-style:normal; font-weight:800; white-space:nowrap; }
-.day-smart-actions { display:grid; gap:6px; }
-.day-smart-actions h4 { margin:0; color:#66493a; font-size:12px; }
-.vote-notes .day-smart-actions article { display:flex; align-items:center; gap:8px; padding:7px 9px; border:1px solid #dcc9aa; border-radius:9px; background:#faf2e4; }
-.day-smart-actions img { width:32px; height:32px; flex:none; border-radius:50%; object-fit:contain; }
-.day-smart-actions div { min-width:0; }
-.vote-notes .day-smart-actions b { font-size:11px; }
-.vote-notes .day-smart-actions p { margin:2px 0 0; color:#685142; font-size:11px; line-height:1.4; }
+.day-role-conclusions { display:grid; gap:0; margin:0 2px 5px; }
+.vote-notes .day-role-conclusion { display:grid; grid-template-columns:22px auto minmax(0,1fr); align-items:center; gap:7px; padding:5px 2px; border-bottom:1px solid rgba(121,83,54,.14); }
+.vote-notes .day-role-conclusion:last-child { border-bottom:0; }
+.day-role-conclusion img { width:22px; height:22px; border-radius:50%; object-fit:contain; background:#eee5d7; }
+.vote-notes .day-role-conclusion b { color:#6b4537; font-size:10px; white-space:nowrap; }
+.vote-notes .day-role-conclusion p { min-width:0; margin:0; color:#59463a; font-size:11px; line-height:1.4; overflow-wrap:anywhere; }
 .vote-notes .daily-vote-record { display:grid; gap:10px; padding:11px; border:1px solid #dbc7a5; border-radius:11px; background:#fffaf0; }
 .vote-notes .daily-vote-record .nomination-sentence { font-size:15px; line-height:1.45; color:#4a3025; }
 .vote-player-row { display:flex; align-items:center; flex-wrap:wrap; gap:7px; min-height:42px; }
